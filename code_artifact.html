@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太陽-地球-月球與月相變化互動教學</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+            background-color: #0b0f19;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #374151;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+            border: 2px solid #ffffff;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-indigo-600/30 rounded-lg border border-indigo-500/30 text-indigo-400">
+                <i class="fa-solid fa-moon text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-amber-200 via-indigo-200 to-blue-400 bg-clip-text text-transparent">
+                    日月地軌道與月相變化互動教學
+                </h1>
+                <p class="text-xs text-slate-400">3D天體空間位置與地球視角月相對照</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-2 text-xs">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                <i class="fa-solid fa-sun mr-1.5"></i> 太陽光由右側平行照射
+            </span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                <i class="fa-solid fa-rotate-left mr-1.5"></i> 逆時針公轉 (西向東)
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 max-w-7xl w-full mx-auto">
+        
+        <!-- 3D View and Controls (8 cols on LG) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+            
+            <!-- 3D Viewport Box -->
+            <div class="relative w-full h-[420px] sm:h-[500px] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl group">
+                <div id="three-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+                <!-- HUD Overlay Info -->
+                <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-xl p-3 text-xs space-y-1 pointer-events-none">
+                    <div class="font-semibold text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-compass text-indigo-400"></i>
+                        <span>視角模式：<span id="view-mode-text" class="text-indigo-300">自由 3D 觀察</span></span>
+                    </div>
+                    <div class="text-slate-400">滑鼠可直接拖曳 <strong class="text-amber-300">月球(公轉)</strong> 或 <strong class="text-emerald-400">地球(自轉)</strong></div>
+                    <div class="text-emerald-300 font-mono text-[11px] pt-1 border-t border-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-pin text-emerald-400"></i>
+                        <span>觀測者時間：<strong id="earth-time-display" class="text-amber-300 font-bold">18:00 (傍晚/日落)</strong></span>
+                    </div>
+                </div>
+
+                <!-- Sun Direction Indicator -->
+                <div class="absolute top-3 right-3 bg-amber-950/60 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs text-amber-200 flex items-center gap-2 pointer-events-none backdrop-blur">
+                    <span>太陽光源方向</span>
+                    <i class="fa-solid fa-arrow-left text-amber-400 animate-pulse"></i>
+                </div>
+
+                <!-- Camera Controls Overlay -->
+                <div class="absolute bottom-3 left-3 flex gap-2">
+                    <button id="btn-camera-perspective" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition border border-indigo-400/30 shadow-md flex items-center gap-1">
+                        <i class="fa-solid fa-cube"></i> 自由 3D 視角
+                    </button>
+                    <button id="btn-camera-topdown" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition border border-slate-700 shadow-md flex items-center gap-1">
+                        <i class="fa-solid fa-arrows-to-dot"></i> 北極俯瞰 (驗證逆時針)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-xl space-y-4">
+                
+                <!-- Main Revolution Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-sm font-medium">
+                        <label for="orbit-slider" class="text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-400"></i>
+                            月球公轉位置角度: <span id="angle-display" class="text-indigo-400 font-bold text-base">90°</span>
+                        </label>
+                        <span class="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
+                            約農曆 <span id="lunar-day-display" class="text-amber-300 font-semibold">初八</span>
+                        </span>
+                    </div>
+                    
+                    <input type="range" id="orbit-slider" min="0" max="360" value="90" step="1" class="w-full">
+                    
+                    <div class="flex justify-between text-[11px] text-slate-500 font-mono px-1">
+                        <span>0° (新月)</span>
+                        <span>90° (上弦月)</span>
+                        <span>180° (滿月)</span>
+                        <span>270° (下弦月)</span>
+                        <span>360°</span>
+                    </div>
+                </div>
+
+                <!-- Key Moon Phases Buttons -->
+                <div>
+                    <span class="text-xs text-slate-400 font-medium block mb-2">快速選擇關鍵月相點：</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button class="preset-btn px-3 py-2 bg-slate-800 hover:bg-indigo-900/50 hover:border-indigo-500 border border-slate-700 rounded-xl text-xs font-medium flex items-center justify-between transition group" data-angle="0">
+                            <span class="text-slate-300 group-hover:text-white">1. 新月 (朔)</span>
+                            <span class="text-[10px] text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded">0°</span>
+                        </button>
+                        
+                        <button class="preset-btn px-3 py-2 bg-slate-800 hover:bg-indigo-900/50 hover:border-indigo-500 border border-indigo-500/50 ring-2 ring-indigo-500/30 rounded-xl text-xs font-medium flex items-center justify-between transition group" data-angle="90">
+                            <span class="text-amber-300 font-bold group-hover:text-amber-200"><i class="fa-solid fa-star text-[10px] mr-1"></i>上弦月</span>
+                            <span class="text-[10px] text-indigo-300 bg-indigo-950 px-1.5 py-0.5 rounded">90°</span>
+                        </button>
+                        
+                        <button class="preset-btn px-3 py-2 bg-slate-800 hover:bg-indigo-900/50 hover:border-indigo-500 border border-indigo-500/50 ring-2 ring-indigo-500/30 rounded-xl text-xs font-medium flex items-center justify-between transition group" data-angle="180">
+                            <span class="text-amber-300 font-bold group-hover:text-amber-200"><i class="fa-solid fa-star text-[10px] mr-1"></i>滿月 (望)</span>
+                            <span class="text-[10px] text-indigo-300 bg-indigo-950 px-1.5 py-0.5 rounded">180°</span>
+                        </button>
+                        
+                        <button class="preset-btn px-3 py-2 bg-slate-800 hover:bg-indigo-900/50 hover:border-indigo-500 border border-indigo-500/50 ring-2 ring-indigo-500/30 rounded-xl text-xs font-medium flex items-center justify-between transition group" data-angle="270">
+                            <span class="text-amber-300 font-bold group-hover:text-amber-200"><i class="fa-solid fa-star text-[10px] mr-1"></i>下弦月</span>
+                            <span class="text-[10px] text-indigo-300 bg-indigo-950 px-1.5 py-0.5 rounded">270°</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Animation Controls -->
+                <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                    <div class="flex items-center gap-2">
+                        <button id="btn-play" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-lg shadow-indigo-600/30">
+                            <i class="fa-solid fa-play" id="play-icon"></i>
+                            <span id="play-text">自動公轉播放</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-xs text-slate-400">
+                        <span>公轉速度:</span>
+                        <input type="range" id="speed-slider" min="0.1" max="1.5" value="0.4" step="0.1" class="w-24">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Earth View Moon Phase Card -->
+            <div class="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl p-5 border border-slate-800 shadow-xl flex flex-col items-center text-center relative overflow-hidden">
+                <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-indigo-500 to-blue-500"></div>
+                
+                <span class="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1">
+                    <i class="fa-solid fa-eye mr-1"></i> 從地球看到的月相
+                </span>
+                
+                <h2 id="phase-title" class="text-2xl font-extrabold text-white mb-3">
+                    上弦月 (First Quarter)
+                </h2>
+
+                <!-- 2D Canvas for Moon Phase rendering -->
+                <div class="relative my-2 p-3 bg-slate-950 rounded-full border border-slate-800/80 shadow-inner flex items-center justify-center">
+                    <canvas id="moon-phase-canvas" width="160" height="160" class="rounded-full shadow-2xl"></canvas>
+                </div>
+
+                <div class="mt-3 w-full bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-left text-xs space-y-2">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span class="text-slate-400"><i class="fa-regular fa-clock mr-1"></i>建議觀測時間：</span>
+                        <span id="phase-time" class="text-amber-300 font-medium">上半夜 (正午升起，半夜落下)</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span class="text-slate-400"><i class="fa-solid fa-compass mr-1"></i>亮面方向：</span>
+                        <span id="phase-dir" class="text-indigo-300 font-medium">西半邊 (右側照亮)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400"><i class="fa-solid fa-sun mr-1"></i>月地日夾角：</span>
+                        <span id="phase-angle-text" class="text-slate-200 font-mono">90°</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explanatory Educational Card -->
+            <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-xl flex-1 space-y-3 text-xs">
+                <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-graduation-cap text-amber-400"></i>
+                    三球定位與三個月相特徵說明
+                </h3>
+
+                <div class="space-y-2.5 text-slate-300 leading-relaxed">
+                    <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <div class="font-bold text-amber-300 flex items-center justify-between mb-1">
+                            <span>🌗 上弦月 (90°)</span>
+                            <span class="text-[10px] font-normal text-slate-400">農曆初七、初八</span>
+                        </div>
+                        <p class="text-slate-400 text-[11px]">月亮位於地球公轉前方。從地球看，月球<strong class="text-slate-200">右半邊 (西邊) 被照亮</strong>，形狀像弓弦在上，傍晚出現在南方高空。</p>
+                    </div>
+
+                    <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <div class="font-bold text-amber-300 flex items-center justify-between mb-1">
+                            <span>🌕 滿月 / 望 (180°)</span>
+                            <span class="text-[10px] font-normal text-slate-400">農曆十五、十六</span>
+                        </div>
+                        <p class="text-slate-400 text-[11px]">地球位於太陽與月球中間。月球面向地球的整個反射面皆受光照射，<strong class="text-slate-200">整夜可見 (傍晚升起，清晨落下)</strong>。</p>
+                    </div>
+
+                    <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                        <div class="font-bold text-amber-300 flex items-center justify-between mb-1">
+                            <span>🌓 下弦月 (270°)</span>
+                            <span class="text-[10px] font-normal text-slate-400">農曆二十二、二十三</span>
+                        </div>
+                        <p class="text-slate-400 text-[11px]">月亮位於地球公轉後方。從地球看，月球<strong class="text-slate-200">左半邊 (東邊) 被照亮</strong>，弓弦在下，深夜升起，下半夜可見。</p>
+                    </div>
+                </div>
+
+                <div class="p-2 bg-indigo-950/40 border border-indigo-800/50 rounded-xl text-indigo-300 text-[11px] flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
+                    <span><strong>觀念提示：</strong>從地球北極上空俯瞰時，月亮繞地球公轉的方向是<strong class="underline">逆時針</strong>（由西向東）。</span>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Global variables for 3D & State
+        let scene, camera, renderer;
+        let sunMesh, earthMesh, moonMesh, orbitLine;
+        let observerMarker;
+        let isPlaying = false;
+        let animationFrameId = null;
+        
+        // System Settings
+        const ORBIT_RADIUS = 14;
+        let currentAngle = 90; // Default to First Quarter (上弦月)
+        let speed = 0.4;
+        let cameraMode = 'perspective';
+
+        // Dragging State
+        let raycaster, mouse;
+        let isDraggingMoon = false;
+        let isDraggingEarth = false;
+        let previousMouseX = 0;
+
+        // DOM Elements
+        const container = document.getElementById('three-container');
+        const orbitSlider = document.getElementById('orbit-slider');
+        const angleDisplay = document.getElementById('angle-display');
+        const lunarDayDisplay = document.getElementById('lunar-day-display');
+        const earthTimeDisplay = document.getElementById('earth-time-display');
+        const btnPlay = document.getElementById('btn-play');
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+        const speedSlider = document.getElementById('speed-slider');
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const btnCamPerspective = document.getElementById('btn-camera-perspective');
+        const btnCamTopdown = document.getElementById('btn-camera-topdown');
+        const viewModeText = document.getElementById('view-mode-text');
+
+        // Phase Info DOM Elements
+        const phaseTitle = document.getElementById('phase-title');
+        const phaseTime = document.getElementById('phase-time');
+        const phaseDir = document.getElementById('phase-dir');
+        const phaseAngleText = document.getElementById('phase-angle-text');
+        const moonCanvas = document.getElementById('moon-phase-canvas');
+        const moonCtx = moonCanvas.getContext('2d');
+
+        function createSunTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.2, '#fef08a');
+            grad.addColorStop(0.5, '#f59e0b');
+            grad.addColorStop(1, '#b45309');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 512, 512);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createEarthTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1d4ed8'; // Ocean
+            ctx.fillRect(0, 0, 512, 256);
+            
+            ctx.fillStyle = '#15803d'; // Continents
+            ctx.beginPath();
+            ctx.ellipse(150, 100, 60, 40, 0, 0, Math.PI * 2);
+            ctx.ellipse(350, 120, 80, 50, 0.2, 0, Math.PI * 2);
+            ctx.ellipse(220, 180, 50, 30, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f8fafc'; // Ice caps
+            ctx.fillRect(0, 0, 512, 20);
+            ctx.fillRect(0, 236, 512, 20);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createMoonTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(0, 0, 512, 256);
+            
+            ctx.fillStyle = '#64748b'; // Craters
+            for (let i = 0; i < 40; i++) {
+                const x = (Math.sin(i * 99) * 0.5 + 0.5) * 512;
+                const y = (Math.cos(i * 33) * 0.5 + 0.5) * 256;
+                const r = 5 + (i % 12);
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function init3D() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x070a12);
+
+            // Raycaster and mouse
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Camera
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+            updateCameraPosition();
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x222638, 0.4);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.8);
+            sunLight.position.set(40, 0, 0); // Sun is far right (+X)
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            // 1. SUN
+            const sunGeo = new THREE.SphereGeometry(4, 32, 32);
+            const sunMat = new THREE.MeshBasicMaterial({ map: createSunTexture() });
+            sunMesh = new THREE.Mesh(sunGeo, sunMat);
+            sunMesh.position.set(32, 0, 0);
+            scene.add(sunMesh);
+
+            const sunGlowGeo = new THREE.SphereGeometry(4.6, 32, 32);
+            const sunGlowMat = new THREE.MeshBasicMaterial({
+                color: 0xf59e0b,
+                transparent: true,
+                opacity: 0.25
+            });
+            const sunGlowMesh = new THREE.Mesh(sunGlowGeo, sunGlowMat);
+            sunGlowMesh.position.copy(sunMesh.position);
+            scene.add(sunGlowMesh);
+
+            // 2. EARTH
+            const earthGeo = new THREE.SphereGeometry(2.5, 32, 32);
+            const earthMat = new THREE.MeshStandardMaterial({
+                map: createEarthTexture(),
+                roughness: 0.7,
+                metalness: 0.1
+            });
+            earthMesh = new THREE.Mesh(earthGeo, earthMat);
+            earthMesh.name = "Earth";
+            earthMesh.rotation.z = 23.5 * Math.PI / 180;
+            scene.add(earthMesh);
+
+            // Observer Pin Marker
+            const obsGeo = new THREE.SphereGeometry(0.22, 16, 16);
+            const obsMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            observerMarker = new THREE.Mesh(obsGeo, obsMat);
+            observerMarker.position.set(0, 0, 2.5);
+
+            const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8);
+            const poleMat = new THREE.MeshBasicMaterial({ color: 0xfcb814 });
+            const poleMesh = new THREE.Mesh(poleGeo, poleMat);
+            poleMesh.position.set(0, 0.2, 0);
+            observerMarker.add(poleMesh);
+
+            earthMesh.add(observerMarker);
+            earthMesh.rotation.y = Math.PI / 2;
+
+            // Earth Atmosphere
+            const atmosGeo = new THREE.SphereGeometry(2.6, 32, 32);
+            const atmosMat = new THREE.MeshBasicMaterial({
+                color: 0x60a5fa,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.BackSide
+            });
+            const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+            earthMesh.add(atmosMesh);
+
+            // 3. MOON
+            const moonGeo = new THREE.SphereGeometry(1.0, 32, 32);
+            const moonMat = new THREE.MeshStandardMaterial({
+                map: createMoonTexture(),
+                roughness: 0.9,
+                metalness: 0.0
+            });
+            moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            moonMesh.name = "Moon";
+            scene.add(moonMesh);
+
+            // 4. Orbit Line Geometry
+            const orbitPoints = [];
+            const segments = 64;
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * Math.PI * 2;
+                orbitPoints.push(new THREE.Vector3(
+                    Math.cos(theta) * ORBIT_RADIUS,
+                    0,
+                    -Math.sin(theta) * ORBIT_RADIUS
+                ));
+            }
+            const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+            const orbitMat = new THREE.LineBasicMaterial({
+                color: 0x6366f1,
+                transparent: true,
+                opacity: 0.4,
+                linewidth: 1.5
+            });
+            orbitLine = new THREE.Line(orbitGeo, orbitMat);
+            scene.add(orbitLine);
+
+            // Orbit Direction Indicators
+            createOrbitDirectionArrows();
+
+            // Initial Moon Position Update
+            updateMoonPosition(currentAngle);
+
+            // Mouse Controls
+            setupMouseControls();
+
+            // Window Resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createOrbitDirectionArrows() {
+            const arrowCount = 4;
+            for (let i = 0; i < arrowCount; i++) {
+                const angle = (i / arrowCount) * Math.PI * 2;
+                const x = Math.cos(angle) * ORBIT_RADIUS;
+                const z = -Math.sin(angle) * ORBIT_RADIUS;
+                
+                const arrowGeo = new THREE.ConeGeometry(0.3, 0.8, 8);
+                const arrowMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.6 });
+                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                arrow.position.set(x, 0, z);
+                
+                arrow.rotation.x = Math.PI / 2;
+                arrow.rotation.z = -angle + Math.PI / 2;
+                scene.add(arrow);
+            }
+        }
+
+        function setupMouseControls() {
+            let isCameraDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+
+            container.addEventListener('mousedown', (e) => {
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects([moonMesh, earthMesh], true);
+
+                if (intersects.length > 0) {
+                    let hitObject = intersects[0].object;
+                    while (hitObject.parent && hitObject.parent !== scene) {
+                        hitObject = hitObject.parent;
+                    }
+
+                    if (hitObject === moonMesh) {
+                        isDraggingMoon = true;
+                        isPlaying = false;
+                        updatePlayButtonUI();
+                        return;
+                    } else if (hitObject === earthMesh) {
+                        isDraggingEarth = true;
+                        previousMouseX = e.clientX;
+                        isPlaying = false;
+                        updatePlayButtonUI();
+                        return;
+                    }
+                }
+
+                isCameraDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+                if (isDraggingMoon) {
+                    raycaster.setFromCamera(mouse, camera);
+                    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+                    const targetPoint = new THREE.Vector3();
+                    raycaster.ray.intersectPlane(plane, targetPoint);
+
+                    if (targetPoint) {
+                        let rad = Math.atan2(-targetPoint.z, targetPoint.x);
+                        let deg = (rad * 180) / Math.PI;
+                        if (deg < 0) deg += 360;
+
+                        currentAngle = deg;
+                        orbitSlider.value = currentAngle;
+                        updateMoonPosition(currentAngle);
+                    }
+                    return;
+                }
+
+                if (isDraggingEarth) {
+                    const deltaX = e.clientX - previousMouseX;
+                    earthMesh.rotation.y += deltaX * 0.012;
+                    previousMouseX = e.clientX;
+
+                    updateEarthObserverTime();
+                    renderer.render(scene, camera);
+                    return;
+                }
+
+                if (!isCameraDragging || cameraMode === 'topdown') return;
+
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                const radius = camera.position.length();
+                let theta = Math.atan2(camera.position.x, camera.position.z);
+                let phi = Math.acos(Math.min(Math.max(camera.position.y / radius, -1), 1));
+
+                theta -= deltaMove.x * 0.008;
+                phi -= deltaMove.y * 0.008;
+
+                phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, phi));
+
+                camera.position.x = radius * Math.sin(phi) * Math.sin(theta);
+                camera.position.y = radius * Math.cos(phi);
+                camera.position.z = radius * Math.sin(phi) * Math.cos(theta);
+                camera.lookAt(0, 0, 0);
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => {
+                isCameraDragging = false;
+                isDraggingMoon = false;
+                isDraggingEarth = false;
+            });
+
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY * 0.02;
+                camera.position.multiplyScalar(1 + zoomFactor * 0.05);
+                camera.position.clampLength(15, 70);
+            }, { passive: false });
+        }
+
+        function updateEarthObserverTime() {
+            if (!observerMarker || !earthTimeDisplay) return;
+
+            const worldPos = new THREE.Vector3();
+            observerMarker.getWorldPosition(worldPos);
+
+            let angleRad = Math.atan2(worldPos.z, worldPos.x);
+            if (angleRad < 0) angleRad += Math.PI * 2;
+
+            let hourOffset = (angleRad / (Math.PI * 2)) * 24;
+            let hour = (12 + hourOffset) % 24;
+
+            const hourInt = Math.floor(hour);
+            const minInt = Math.floor((hour - hourInt) * 60);
+            const timeFormatted = `${String(hourInt).padStart(2, '0')}:${String(minInt).padStart(2, '0')}`;
+
+            let periodText = "";
+            if (hour >= 5 && hour < 8) periodText = " (清晨/日出)";
+            else if (hour >= 8 && hour < 11) periodText = " (上午)";
+            else if (hour >= 11 && hour < 13) periodText = " (正午)";
+            else if (hour >= 13 && hour < 17) periodText = " (下午)";
+            else if (hour >= 17 && hour < 20) periodText = " (傍晚/日落)";
+            else if (hour >= 20 || hour < 5) periodText = " (半夜/深夜)";
+
+            earthTimeDisplay.innerText = `${timeFormatted}${periodText}`;
+        }
+
+        function updateCameraPosition() {
+            if (cameraMode === 'perspective') {
+                camera.position.set(0, 18, 32);
+                camera.lookAt(0, 0, 0);
+                if (viewModeText) viewModeText.innerText = "自由 3D 觀察";
+            } else {
+                camera.position.set(0, 36, 0.001);
+                camera.lookAt(0, 0, 0);
+                if (viewModeText) viewModeText.innerText = "北極俯瞰 (標準逆時針視角)";
+            }
+        }
+
+        function updateMoonPosition(angleDeg) {
+            currentAngle = angleDeg;
+            const rad = (angleDeg * Math.PI) / 180;
+            
+            const x = ORBIT_RADIUS * Math.cos(rad);
+            const z = -ORBIT_RADIUS * Math.sin(rad);
+            
+            moonMesh.position.set(x, 0, z);
+            moonMesh.rotation.y = rad + Math.PI; // Tidal locking
+
+            angleDisplay.innerText = `${Math.round(angleDeg)}°`;
+            
+            const lunarDay = Math.floor((angleDeg / 360) * 29.5) + 1;
+            lunarDayDisplay.innerText = getLunarDayName(lunarDay);
+
+            updateEarthObserverTime();
+            updatePhaseInfo(angleDeg);
+            renderMoonPhase2D(angleDeg);
+
+            renderer.render(scene, camera);
+        }
+
+        function getLunarDayName(day) {
+            const names = [
+                "初一 (朔)", "初二", "初三", "初四", "初五", "初六", "初七", "初八 (上弦)", 
+                "初九", "初十", "十一", "十二", "十三", "十四", "十五 (望)", "十六", 
+                "十七", "十八", "十九", "二十", "二十一", "二十二", "二十三 (下弦)", 
+                "二十四", "二十五", "二十六", "二十七", "二十八", "二十九", "三十"
+            ];
+            return names[Math.min(day - 1, 29)];
+        }
+
+        function renderMoonPhase2D(angleDeg) {
+            const width = moonCanvas.width;
+            const height = moonCanvas.height;
+            const radius = width / 2 - 8;
+            const cx = width / 2;
+            const cy = height / 2;
+
+            moonCtx.clearRect(0, 0, width, height);
+
+            moonCtx.save();
+            moonCtx.beginPath();
+            moonCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+            moonCtx.fillStyle = '#1e293b';
+            moonCtx.fill();
+
+            const rad = (angleDeg * Math.PI) / 180;
+            const cosA = Math.cos(rad);
+
+            moonCtx.fillStyle = '#fef08a';
+
+            if (angleDeg >= 0 && angleDeg <= 180) {
+                // Waxing phases: Right side lit
+                moonCtx.beginPath();
+                moonCtx.arc(cx, cy, radius, -Math.PI / 2, Math.PI / 2, false);
+                moonCtx.ellipse(cx, cy, Math.abs(cosA) * radius, radius, 0, Math.PI / 2, -Math.PI / 2, cosA > 0);
+                moonCtx.fill();
+            } else {
+                // Waning phases: Left side lit
+                moonCtx.beginPath();
+                moonCtx.arc(cx, cy, radius, Math.PI / 2, -Math.PI / 2, false);
+                moonCtx.ellipse(cx, cy, Math.abs(cosA) * radius, radius, 0, -Math.PI / 2, Math.PI / 2, cosA < 0);
+                moonCtx.fill();
+            }
+
+            moonCtx.beginPath();
+            moonCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+            moonCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            moonCtx.lineWidth = 2;
+            moonCtx.stroke();
+
+            moonCtx.restore();
+        }
+
+        function updatePhaseInfo(angleDeg) {
+            phaseAngleText.innerText = `${Math.round(angleDeg)}°`;
+            const a = (angleDeg % 360 + 360) % 360;
+
+            if (a >= 345 || a < 15) {
+                phaseTitle.innerText = "新月 / 朔 (New Moon)";
+                phaseTime.innerText = "白天 (清晨升起，傍晚落下，不可見)";
+                phaseDir.innerText = "背對地球 (完全黑暗)";
+            } else if (a >= 15 && a < 75) {
+                phaseTitle.innerText = "眉月 (Waxing Crescent)";
+                phaseTime.innerText = "傍晚西邊天空 (日落後可見)";
+                phaseDir.innerText = "西邊一縷亮弧 (右側)";
+            } else if (a >= 75 && a < 105) {
+                phaseTitle.innerText = "上弦月 (First Quarter)";
+                phaseTime.innerText = "上半夜 (正午升起，半夜落下)";
+                phaseDir.innerText = "右半邊 / 西半邊照亮";
+            } else if (a >= 105 && a < 165) {
+                phaseTitle.innerText = "盈凸月 (Waxing Gibbous)";
+                phaseTime.innerText = "午後至大半夜可見";
+                phaseDir.innerText = "大半個右側照亮";
+            } else if (a >= 165 && a < 195) {
+                phaseTitle.innerText = "滿月 / 望 (Full Moon)";
+                phaseTime.innerText = "整夜可見 (傍晚升起，清晨落下)";
+                phaseDir.innerText = "全盤照亮";
+            } else if (a >= 195 && a < 255) {
+                phaseTitle.innerText = "虧凸月 (Waning Gibbous)";
+                phaseTime.innerText = "大半夜至清晨可見";
+                phaseDir.innerText = "大半個左側照亮";
+            } else if (a >= 255 && a < 285) {
+                phaseTitle.innerText = "下弦月 (Last Quarter)";
+                phaseTime.innerText = "下半夜 (半夜升起，正午落下)";
+                phaseDir.innerText = "左半邊 / 東半邊照亮";
+            } else {
+                phaseTitle.innerText = "殘月 (Waning Crescent)";
+                phaseTime.innerText = "黎明前東方天空可見";
+                phaseDir.innerText = "左側一縷亮弧";
+            }
+
+            presetBtns.forEach(btn => {
+                const targetAngle = parseFloat(btn.dataset.angle);
+                if (Math.abs(targetAngle - a) < 10) {
+                    btn.classList.add('border-indigo-500', 'bg-indigo-950/60');
+                } else {
+                    btn.classList.remove('border-indigo-500', 'bg-indigo-950/60');
+                }
+            });
+        }
+
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+
+            if (isPlaying) {
+                currentAngle = (currentAngle + speed) % 360;
+                orbitSlider.value = currentAngle;
+                earthMesh.rotation.y += speed * 0.08;
+                updateMoonPosition(currentAngle);
+            } else {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function initEventListeners() {
+            orbitSlider.addEventListener('input', (e) => {
+                isPlaying = false;
+                updatePlayButtonUI();
+                updateMoonPosition(parseFloat(e.target.value));
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                speed = parseFloat(e.target.value);
+            });
+
+            presetBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const angle = parseFloat(btn.dataset.angle);
+                    orbitSlider.value = angle;
+                    isPlaying = false;
+                    updatePlayButtonUI();
+                    updateMoonPosition(angle);
+                });
+            });
+
+            btnPlay.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                updatePlayButtonUI();
+            });
+
+            btnCamPerspective.addEventListener('click', () => {
+                cameraMode = 'perspective';
+                btnCamPerspective.className = "px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition border border-indigo-400/30 shadow-md flex items-center gap-1";
+                btnCamTopdown.className = "px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition border border-slate-700 shadow-md flex items-center gap-1";
+                updateCameraPosition();
+            });
+
+            btnCamTopdown.addEventListener('click', () => {
+                cameraMode = 'topdown';
+                btnCamTopdown.className = "px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition border border-slate-700 shadow-md flex items-center gap-1";
+                btnCamPerspective.className = "px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition border border-slate-700 shadow-md flex items-center gap-1";
+                updateCameraPosition();
+            });
+        }
+
+        function updatePlayButtonUI() {
+            if (isPlaying) {
+                playIcon.className = "fa-solid fa-pause";
+                playText.innerText = "暫停播放";
+                btnPlay.classList.replace('bg-indigo-600', 'bg-amber-600');
+                btnPlay.classList.replace('hover:bg-indigo-500', 'hover:bg-amber-500');
+            } else {
+                playIcon.className = "fa-solid fa-play";
+                playText.innerText = "自動公轉播放";
+                btnPlay.classList.replace('bg-amber-600', 'bg-indigo-600');
+                btnPlay.classList.replace('hover:bg-amber-500', 'hover:bg-indigo-500');
+            }
+        }
+
+        function onWindowResize() {
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Start Application
+        window.onload = function() {
+            init3D();
+            initEventListeners();
+            animate();
+        };
+    </script>
+</body>
+</html>
