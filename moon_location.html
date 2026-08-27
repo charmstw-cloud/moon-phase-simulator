@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式月亮方位與高度角示意圖</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Tailwind slate-900 */
+            color: #f8fafc; /* Tailwind slate-50 */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* 防止出現捲軸 */
+            margin: 0;
+            padding: 0;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            display: block;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(30, 41, 59, 0.8); /* Tailwind slate-800 with opacity */
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155; /* Tailwind slate-700 */
+            pointer-events: none; /* 讓滑鼠事件穿透到 canvas */
+        }
+        .instruction {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <h1 class="instruction text-2xl md:text-3xl font-bold text-yellow-300">拖曳月亮以改變位置</h1>
+        <canvas id="skyCanvas"></canvas>
+        <div id="info-panel">
+            <h2 class="text-xl font-bold mb-3 text-blue-300 border-b border-slate-600 pb-2">觀測數據</h2>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:text-base">
+                <div class="text-slate-400 text-right">方位角 (Azimuth):</div>
+                <div id="azimuth-display" class="font-mono text-yellow-400 font-bold">0° (北)</div>
+                <div class="text-slate-400 text-right">仰角 (Altitude):</div>
+                <div id="altitude-display" class="font-mono text-yellow-400 font-bold">30°</div>
+                <div class="text-slate-400 text-right mt-2 pt-2 border-t border-slate-700">大致方向:</div>
+                <div id="direction-display" class="font-bold text-blue-200 mt-2 pt-2 border-t border-slate-700">正北</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-4 italic">* 方位角以正北為0度，順時針計算</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('skyCanvas');
+        const ctx = canvas.getContext('2d');
+        const azimuthDisplay = document.getElementById('azimuth-display');
+        const altitudeDisplay = document.getElementById('altitude-display');
+        const directionDisplay = document.getElementById('direction-display');
+
+        // 月亮物件狀態
+        const moon = {
+            x: 0,
+            y: 0,
+            radius: 30,
+            isDragging: false
+        };
+
+        // 場景參數 (使用極座標或球座標的概念來轉換 2.5D)
+        let centerX, centerY;
+        const groundRadiusX = 300; // 地平面橢圓的長半軸
+        const groundRadiusY = 100; // 地平面橢圓的短半軸
+        
+        // 實際的球座標 (內部狀態)
+        let currentAzimuth = 135;  // 預設方位角 (東南)
+        let currentAltitude = 30; // 預設高度角
+
+        // 場景視角旋轉 (觀察者面向的角度)
+        // 0度代表正視北方 (N在最上方)
+        let viewRotation = 0;
+        let isDraggingGround = false;
+        let lastMouseX = 0;
+
+        // 調整畫布大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2 + 100; // 將地平面前移一點
+            updateMoonPositionFromAngles();
+            drawScene();
+        }
+
+        // 為了呈現 2.5D，我們將地平面畫成橢圓
+        // 方位角 azimuth: 0 = 北, 90 = 東, 180 = 南, 270 = 西
+        // 在我們的畫布上，北在上方(遠處)，南在下方(近處)，東在右，西在左
+        function updateMoonPositionFromAngles() {
+            // 1. 計算投影在地平面上的位置 (使用橢圓參數式)
+            // azimuth=0 (北) -> 橢圓最上方 (y最小)
+            // azimuth=90 (東) -> 橢圓最右方 (x最大)
+            // 轉換角度使 0度對齊北方 (Y軸負向)
+            // 加入視角旋轉 viewRotation
+            const angleRad = (currentAzimuth - 90 - viewRotation) * (Math.PI / 180);
+            
+            // 投影點在地平面橢圓上的位置
+            const projX = centerX + groundRadiusX * Math.cos(angleRad);
+            const projY = centerY + groundRadiusY * Math.sin(angleRad);
+
+            // 2. 計算高度 (Y軸偏移)
+            // 根據高度角，我們在畫面上往上移動。
+            // 這裡做一個簡單的透視比例：高度角 90度時，月亮在天頂。
+            // 假設天頂距離地平面的視覺高度為 300px
+            const maxVisualHeight = 350;
+            const heightOffset = (currentAltitude / 90) * maxVisualHeight;
+
+            moon.x = projX;
+            moon.y = projY - heightOffset;
+            
+            // 根據高度角微調月亮大小 (選用)
+            // moon.radius = 30 + (currentAltitude / 90) * 10;
+        }
+
+        function updateAnglesFromMouse(mouseX, mouseY) {
+            // 1. 估算方位角
+            // 相對於中心的 X, Y 偏移
+            const dx = mouseX - centerX;
+            // 由於地平面是橢圓，我們需要將 Y 軸縮放回正圓來計算正確的角度
+            const dy = (mouseY - centerY) * (groundRadiusX / groundRadiusY);
+            
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            // 轉回方位角定義 (0=北, 順時針)，並考慮目前的視角旋轉
+            // atan2: 0度是右(東), 90度是下(南)
+            let azimuth = angle + 90 + viewRotation;
+            
+            // 正規化角度到 0-359
+            azimuth = azimuth % 360;
+            if (azimuth < 0) azimuth += 360;
+            currentAzimuth = Math.round(azimuth);
+
+            // 2. 估算高度角
+            // 找出當前方位的投影點 (考慮視角)
+            const angleRad = (currentAzimuth - 90 - viewRotation) * (Math.PI / 180);
+            const projY = centerY + groundRadiusY * Math.sin(angleRad);
+            
+            // 實際滑鼠 Y 與投影點 Y 的差值代表高度
+            const heightDiff = projY - mouseY;
+            const maxVisualHeight = 350;
+            
+            let altitude = (heightDiff / maxVisualHeight) * 90;
+            // 限制高度角在 0 到 90 度之間
+            altitude = Math.max(0, Math.min(90, altitude));
+            currentAltitude = Math.round(altitude);
+
+            // 重新計算月亮確實的 2D 位置 (吸附回軌道)
+            updateMoonPositionFromAngles();
+            updateDisplay();
+        }
+
+        function getDirectionString(azimuth) {
+            const directions = ["正北", "北北東", "東北", "東北東", "正東", "東南東", "東南", "南南東", "正南", "南南西", "西南", "西南西", "正西", "西北西", "西北", "北北西"];
+            const index = Math.round(azimuth / 22.5) % 16;
+            return directions[index];
+        }
+
+        function updateDisplay() {
+            azimuthDisplay.innerText = `${currentAzimuth}°`;
+            altitudeDisplay.innerText = `${currentAltitude}°`;
+            directionDisplay.innerText = getDirectionString(currentAzimuth);
+        }
+
+        function drawScene() {
+            // 清除畫布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製星空背景 (簡單的點)
+            drawStars();
+
+            // 繪製地平面 (橢圓)
+            drawGround();
+
+            // 繪製投影點、輔助線與觀測者
+            drawHelpers();
+
+            // 繪製月亮
+            drawMoon();
+            
+            // 繪製資訊標籤於圖上 (可選)
+            drawLabels();
+        }
+
+        function drawStars() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            // 為了效能，通常星星會預先生成並存起來，這裡簡化每次重繪
+            // 固定隨機種子或只畫一次的話更好，這裡我們就畫固定數量的簡單點
+            const numStars = 100;
+            // 我們可以使用一個固定的數組來儲存星星位置以避免閃爍
+            if (!window.stars) {
+                window.stars = [];
+                for(let i=0; i<numStars; i++) {
+                    window.stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * (canvas.height * 0.7), // 星星主要在上半部
+                        r: Math.random() * 1.5
+                    });
+                }
+            }
+            window.stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.r, 0, Math.PI*2);
+                ctx.fill();
+            });
+        }
+
+        function drawGround() {
+            // 地平面底部厚度
+            const thickness = 20;
+            
+            // 畫側面/底部 (咖啡色泥土)
+            ctx.fillStyle = '#451a03'; // Tailwind orange-950 roughly
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY + thickness, groundRadiusX, groundRadiusY, 0, 0, Math.PI, false); // 下半圓
+            ctx.lineTo(centerX - groundRadiusX, centerY);
+            ctx.ellipse(centerX, centerY, groundRadiusX, groundRadiusY, 0, Math.PI, 0, true); // 反向畫上半圓封閉
+            ctx.fill();
+
+            // 畫頂面草地
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, groundRadiusX);
+            gradient.addColorStop(0, '#166534'); // center green
+            gradient.addColorStop(1, '#064e3b'); // edge dark green
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, groundRadiusX, groundRadiusY, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // 畫地平面邊緣線
+            ctx.strokeStyle = '#a3e635'; // light green edge
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 畫十字方位線 (東西南北) - 根據 viewRotation 旋轉
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            
+            // 計算東、西、南、北在橢圓上的位置
+            const dirs = [
+                { name: 'N', angle: 0 },
+                { name: 'E', angle: 90 },
+                { name: 'S', angle: 180 },
+                { name: 'W', angle: 270 }
+            ];
+
+            ctx.beginPath();
+            // 南北線
+            let nRad = (0 - 90 - viewRotation) * (Math.PI / 180);
+            let sRad = (180 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.moveTo(centerX + groundRadiusX * Math.cos(nRad), centerY + groundRadiusY * Math.sin(nRad));
+            ctx.lineTo(centerX + groundRadiusX * Math.cos(sRad), centerY + groundRadiusY * Math.sin(sRad));
+            
+            // 東西線
+            let eRad = (90 - 90 - viewRotation) * (Math.PI / 180);
+            let wRad = (270 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.moveTo(centerX + groundRadiusX * Math.cos(eRad), centerY + groundRadiusY * Math.sin(eRad));
+            ctx.lineTo(centerX + groundRadiusX * Math.cos(wRad), centerY + groundRadiusY * Math.sin(wRad));
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+        }
+
+        function drawHelpers() {
+            // 找出投影點 (考慮視角旋轉)
+            const angleRad = (currentAzimuth - 90 - viewRotation) * (Math.PI / 180);
+            const projX = centerX + groundRadiusX * Math.cos(angleRad);
+            const projY = centerY + groundRadiusY * Math.sin(angleRad);
+
+            // 1. 畫出地平面上的方位角弧線 (從目前畫面上的正北開始)
+            ctx.beginPath();
+            ctx.strokeStyle = '#38bdf8'; // sky-400
+            ctx.lineWidth = 3;
+            // 從畫面上的北 (相對於視角的北) 畫到月亮投影點
+            const startAngle = (-90 - viewRotation) * Math.PI / 180;
+            let endAngle = angleRad;
+            
+            // 確保弧線是順時針畫，代表增加的方位角
+            // 處理跨越 360 度的情況
+            if (endAngle < startAngle) {
+                endAngle += 2 * Math.PI;
+            }
+            
+            let step = 0.05;
+            for(let a = startAngle; a <= endAngle; a += step) {
+                const x = centerX + groundRadiusX * Math.cos(a);
+                const y = centerY + groundRadiusY * Math.sin(a);
+                if (Math.abs(a - startAngle) < 0.01) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            // 確保連到最後一點
+            ctx.lineTo(projX, projY);
+            ctx.stroke();
+
+            // 畫方位角箭頭
+            // 簡化箭頭，直接在投影點畫個小圓點代表
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(projX, projY, 4, 0, Math.PI*2);
+            ctx.fill();
+
+            // 2. 畫連接中心到投影點的線 (地平面上的半徑)
+            ctx.beginPath();
+            ctx.strokeStyle = '#94a3b8'; // slate-400
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(projX, projY);
+            ctx.stroke();
+
+            // 3. 畫垂直線 (從投影點到月亮)
+            ctx.beginPath();
+            ctx.strokeStyle = '#94a3b8'; // slate-400
+            ctx.moveTo(projX, projY);
+            ctx.lineTo(moon.x, moon.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 4. 畫視線 (從中心觀測者到月亮)
+            ctx.beginPath();
+            ctx.strokeStyle = '#fde047'; // yellow-300
+            ctx.lineWidth = 2;
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(moon.x, moon.y);
+            ctx.stroke();
+
+            // 畫高度角弧線 (在中心點與視線之間)
+            // 這是一個 2D 畫面上的扇形表示
+            if (currentAltitude > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#fde047';
+                ctx.fillStyle = 'rgba(253, 224, 71, 0.2)';
+                const arcRadius = 50;
+                
+                // 計算畫面上水平線與視線的夾角
+                const dx = projX - centerX;
+                const dy = projY - centerY;
+                // 這裡的底線角度
+                const baseAngle = Math.atan2(dy, dx);
+                // 視線角度
+                const sightAngle = Math.atan2(moon.y - centerY, moon.x - centerX);
+                
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, arcRadius, baseAngle, sightAngle, true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // 5. 畫中心點 (觀測者位置)
+            ctx.fillStyle = '#ef4444'; // red-500
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, Math.PI*2);
+            ctx.fill();
+            
+            // 標示觀測者
+            ctx.fillStyle = 'white';
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('觀測者 (O)', centerX, centerY + 20);
+        }
+
+        function drawMoon() {
+            // 月球光暈
+            const gradient = ctx.createRadialGradient(moon.x, moon.y, moon.radius * 0.8, moon.x, moon.y, moon.radius * 2);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(moon.x, moon.y, moon.radius * 2, 0, Math.PI*2);
+            ctx.fill();
+
+            // 月球本體
+            ctx.fillStyle = '#f1f5f9'; // slate-100
+            ctx.beginPath();
+            ctx.arc(moon.x, moon.y, moon.radius, 0, Math.PI*2);
+            ctx.fill();
+
+            // 畫點隕石坑裝飾
+            ctx.fillStyle = '#cbd5e1'; // slate-300
+            ctx.beginPath();
+            ctx.arc(moon.x - 10, moon.y - 5, 8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(moon.x + 12, moon.y + 8, 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(moon.x - 5, moon.y + 12, 6, 0, Math.PI*2);
+            ctx.fill();
+
+            // 畫高亮邊緣
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(moon.x, moon.y, moon.radius, 0, Math.PI*2);
+            ctx.stroke();
+            
+            // 拖曳提示
+            if(moon.isDragging) {
+                ctx.strokeStyle = '#fde047';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(moon.x, moon.y, moon.radius + 5, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawLabels() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = 'bold 16px Inter, "微軟正黑體", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 根據視角旋轉計算文字位置
+            const offset = 25;
+            
+            const nRad = (0 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.fillText('北 (0°)', centerX + (groundRadiusX + offset) * Math.cos(nRad), centerY + (groundRadiusY + offset) * Math.sin(nRad));
+            
+            const sRad = (180 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.fillText('南 (180°)', centerX + (groundRadiusX + offset) * Math.cos(sRad), centerY + (groundRadiusY + offset) * Math.sin(sRad));
+            
+            const eRad = (90 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.fillText('東 (90°)', centerX + (groundRadiusX + offset) * Math.cos(eRad), centerY + (groundRadiusY + offset) * Math.sin(eRad));
+            
+            const wRad = (270 - 90 - viewRotation) * (Math.PI / 180);
+            ctx.fillText('西 (270°)', centerX + (groundRadiusX + offset) * Math.cos(wRad), centerY + (groundRadiusY + offset) * Math.sin(wRad));
+
+            // 畫仰角與方位角的文字標示在圖形旁邊
+            const angleRad = (currentAzimuth - 90 - viewRotation) * (Math.PI / 180);
+            const projX = centerX + groundRadiusX * Math.cos(angleRad);
+            const projY = centerY + groundRadiusY * Math.sin(angleRad);
+
+            // 仰角文字
+            if (currentAltitude > 5) {
+                ctx.fillStyle = '#fde047'; // yellow
+                // 放在視線中間稍微偏上
+                const midX = centerX + (moon.x - centerX) * 0.4;
+                const midY = centerY + (moon.y - centerY) * 0.4;
+                ctx.fillText(`仰角 ${currentAltitude}°`, midX, midY - 15);
+            }
+
+            // 方位角文字
+            ctx.fillStyle = '#38bdf8'; // sky blue
+            ctx.fillText(`方位角 ${currentAzimuth}°`, projX + (projX > centerX ? 30 : -30), projY + 15);
+            
+            // 月球標籤
+            ctx.fillStyle = 'white';
+            ctx.fillText('月球', moon.x + moon.radius + 20, moon.y);
+        }
+
+        function isMouseInMoon(mouseX, mouseY) {
+            const dx = mouseX - moon.x;
+            const dy = mouseY - moon.y;
+            // 稍微擴大點擊範圍讓使用者更好點
+            return (dx * dx + dy * dy) <= (moon.radius + 15) * (moon.radius + 15);
+        }
+
+        // 判斷滑鼠是否在地平面範圍內
+        function isMouseInGround(mouseX, mouseY) {
+            // 稍微往下平移一點以涵蓋地平面的厚度
+            const checkY = centerY; 
+            
+            // 使用橢圓方程式檢查：(x-cx)^2 / a^2 + (y-cy)^2 / b^2 <= 1
+            const dx = mouseX - centerX;
+            const dy = mouseY - checkY;
+            
+            const normalizedDistSq = (dx * dx) / (groundRadiusX * groundRadiusX) + (dy * dy) / (groundRadiusY * groundRadiusY);
+            
+            return normalizedDistSq <= 1.2; // 稍微放寬判定範圍
+        }
+
+        function handlePointerDown(e) {
+            e.preventDefault();
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            if (isMouseInMoon(clientX, clientY)) {
+                moon.isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            } else if (isMouseInGround(clientX, clientY)) {
+                // 如果沒有點到月亮，但點到地平面，則開始拖曳地平面
+                isDraggingGround = true;
+                lastMouseX = clientX;
+                canvas.style.cursor = 'ew-resize';
+            }
+        }
+
+        function handlePointerMove(e) {
+            e.preventDefault();
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            if (moon.isDragging) {
+                // 更新角度，這會連帶更新月球位置
+                updateAnglesFromMouse(clientX, clientY);
+                drawScene();
+            } else if (isDraggingGround) {
+                // 計算 X 軸移動量來改變視角旋轉
+                const dx = clientX - lastMouseX;
+                // 調整旋轉靈敏度
+                viewRotation -= dx * 0.5; 
+                
+                // 保持 viewRotation 在 0-359 之間 (雖然不嚴格要求，但有助於除錯)
+                viewRotation = viewRotation % 360;
+                if (viewRotation < 0) viewRotation += 360;
+                
+                lastMouseX = clientX;
+                
+                // 重新計算月亮在畫面上的位置 (因為地平面轉了)
+                updateMoonPositionFromAngles();
+                drawScene();
+            } else {
+                // 滑鼠懸停效果
+                if (isMouseInMoon(clientX, clientY)) {
+                    canvas.style.cursor = 'grab';
+                } else if (isMouseInGround(clientX, clientY)) {
+                    canvas.style.cursor = 'ew-resize';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+        }
+
+        function handlePointerUp(e) {
+            e.preventDefault();
+            moon.isDragging = false;
+            isDraggingGround = false;
+            canvas.style.cursor = 'default';
+            drawScene();
+        }
+
+        // 綁定事件
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        // 觸控支援
+        canvas.addEventListener('touchstart', handlePointerDown, {passive: false});
+        canvas.addEventListener('touchmove', handlePointerMove, {passive: false});
+        window.addEventListener('touchend', handlePointerUp);
+
+        // 視窗縮放
+        window.addEventListener('resize', resizeCanvas);
+
+        // 初始化
+        resizeCanvas();
+        updateDisplay(); // 確保初始數據顯示正確
+
+    </script>
+</body>
+</html>
