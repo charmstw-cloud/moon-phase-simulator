@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月相達人挑戰賽</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.5); }
+        }
+        .star {
+            animation: twinkle infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans text-slate-100 overflow-hidden relative">
+
+    <!-- 星空背景 -->
+    <div id="stars-container" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+
+    <div class="max-w-md w-full bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700 shadow-2xl p-6 md:p-8 z-10 relative" id="app-container">
+        
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="text-center space-y-6">
+            <div class="flex justify-center mb-4">
+                <div class="w-24 h-24 bg-yellow-200 rounded-full shadow-[0_0_40px_rgba(254,240,138,0.5)] flex items-center justify-center text-yellow-600 text-4xl">
+                    🌕
+                </div>
+            </div>
+            <h1 class="text-3xl font-bold text-white tracking-wider">月相達人挑戰賽</h1>
+            <div class="space-y-3 text-slate-300 text-left bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 text-sm">
+                <p class="flex items-start">📌 共有 5 題，會隨機動態繪製對應農曆日期的月相。</p>
+                <p class="flex items-start">⏱️ 倒數10秒內作答，剩9秒以上+10分、依序遞減；答錯或逾時扣5分！</p>
+                <p class="flex items-start">🏆 滿分 50 分，看看你能獲得什麼評價吧！</p>
+            </div>
+            <button onclick="startGame()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 transition-colors rounded-xl font-bold text-lg flex justify-center items-center gap-2 mt-4 cursor-pointer">
+                ▶ 開始挑戰
+            </button>
+        </div>
+
+        <!-- 遊戲進行中畫面 -->
+        <div id="game-screen" class="space-y-4 hidden">
+            <div class="flex justify-between items-center mb-2">
+                <span id="question-counter" class="bg-slate-800 px-3 py-1 rounded-lg text-sm font-medium">第 1 / 5 題</span>
+                <span id="score-display" class="bg-slate-800 px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1">🏆 0 分</span>
+            </div>
+
+            <!-- 計時條 -->
+            <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                <div id="timer-bar" class="h-full bg-green-500 transition-all duration-100 linear" style="width: 100%;"></div>
+            </div>
+            <div id="timer-text" class="text-right text-sm text-slate-400 font-mono">10.0 秒</div>
+
+            <!-- 月相畫布與回饋動畫 -->
+            <div class="relative flex justify-center items-center my-6">
+                <div class="absolute w-48 h-48 bg-yellow-200/10 rounded-full blur-2xl"></div>
+                <canvas id="moonCanvas" width="300" height="300" class="w-48 h-48 z-10"></canvas>
+                <div id="feedback-pop" class="absolute inset-0 flex items-center justify-center pointer-events-none z-20 hidden">
+                    <span id="feedback-text" class="text-5xl font-black drop-shadow-lg"></span>
+                </div>
+            </div>
+
+            <div class="text-center mb-4 text-slate-300">請選擇對應的農曆日期：</div>
+
+            <!-- 選項按鈕 -->
+            <div id="options-container" class="grid grid-cols-1 gap-3"></div>
+
+            <div id="timeout-msg" class="text-center text-red-400 font-bold mt-2 hidden animate-pulse">時間到！</div>
+        </div>
+
+        <!-- 結算畫面 -->
+        <div id="end-screen" class="text-center space-y-6 py-4 hidden">
+            <div class="flex justify-center mb-2">
+                <div id="end-trophy" class="text-6xl">🏆</div>
+            </div>
+            <h2 id="end-title" class="text-2xl font-bold"></h2>
+            <div class="text-5xl font-black my-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                <span id="final-score">0</span> <span class="text-2xl text-slate-400 font-normal">分</span>
+            </div>
+            <p id="end-desc" class="text-slate-300 text-lg"></p>
+            <button onclick="startGame()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 transition-colors rounded-xl font-bold text-lg flex justify-center items-center gap-2 mt-8 cursor-pointer">
+                🔄 再玩一次
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        const MOON_PHASES = [
+            { id: 'new', baseDay: 1, text: "農曆初一", name: "朔月" },
+            { id: 'waxing_crescent', baseDay: 3, text: "農曆初三", name: "眉月" },
+            { id: 'first_quarter', baseDay: 7, text: "農曆初七", name: "上弦月" },
+            { id: 'waxing_gibbous', baseDay: 12, text: "農曆十二", name: "盈凸月" },
+            { id: 'full', baseDay: 15, text: "農曆十五", name: "望月 (滿月)" },
+            { id: 'waning_gibbous', baseDay: 20, text: "農曆二十", name: "虧凸月" },
+            { id: 'third_quarter', baseDay: 22, text: "農曆廿二", name: "下弦月" },
+            { id: 'waning_crescent', baseDay: 27, text: "農曆廿七", name: "殘月" }
+        ];
+
+        let questions = [];
+        let currentQIndex = 0;
+        let score = 0;
+        let timeLeft = 100; // 100 ticks = 10.0秒
+        let timerInterval = null;
+        let isAnswered = false;
+
+        // 產生背景星星
+        const starsContainer = document.getElementById('stars-container');
+        for (let i = 0; i < 30; i++) {
+            const star = document.createElement('div');
+            star.className = 'absolute bg-white rounded-full opacity-30 star';
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.width = `${Math.random() * 3 + 1}px`;
+            star.style.height = star.style.width;
+            star.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            starsContainer.appendChild(star);
+        }
+
+        function startGame() {
+            // 隨機選出 5 個不同的月相
+            const shuffled = [...MOON_PHASES].sort(() => Math.random() - 0.5).slice(0, 5);
+            
+            questions = shuffled.map(phase => {
+                const variance = (Math.random() - 0.5) * 1.6;
+                let dynamicDay = phase.baseDay + variance;
+                if (dynamicDay < 1) dynamicDay = 1;
+                if (dynamicDay > 30) dynamicDay = 30;
+
+                const wrongCandidates = MOON_PHASES.filter(p => p.id !== phase.id);
+                const wrongPhase = wrongCandidates[Math.floor(Math.random() * wrongCandidates.length)];
+
+                const opt1 = `${phase.text} (${phase.name})`;
+                const opt2 = `${wrongPhase.text} (${wrongPhase.name})`;
+
+                return {
+                    dayValue: dynamicDay,
+                    correctText: opt1,
+                    options: [opt1, opt2].sort(() => Math.random() - 0.5)
+                };
+            });
+
+            currentQIndex = 0;
+            score = 0;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            isAnswered = false;
+            timeLeft = 100;
+            document.getElementById('timeout-msg').classList.add('hidden');
+            document.getElementById('feedback-pop').classList.add('hidden');
+            
+            const q = questions[currentQIndex];
+            document.getElementById('question-counter').innerText = `第 ${currentQIndex + 1} / 5 題`;
+            document.getElementById('score-display').innerText = `🏆 ${score} 分`;
+
+            drawMoon(q.dayValue);
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full py-4 rounded-xl border-2 border-slate-600 bg-slate-700 hover:bg-slate-600 text-lg font-medium transition-all cursor-pointer";
+                btn.innerText = opt;
+                btn.onclick = () => handleAnswer(opt, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const bar = document.getElementById('timer-bar');
+                bar.style.width = `${timeLeft}%`;
+                bar.className = `h-full transition-all duration-100 linear ${timeLeft > 50 ? 'bg-green-500' : timeLeft > 25 ? 'bg-yellow-500' : 'bg-red-500'}`;
+                document.getElementById('timer-text').innerText = `${(timeLeft / 10).toFixed(1)} 秒`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeOut();
+                }
+            }, 100);
+        }
+
+        function drawMoon(day) {
+            const canvas = document.getElementById('moonCanvas');
+            const ctx = canvas.getContext('2d');
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const r = Math.min(cx, cy) - 20;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製暗面
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 朔月
+            if (day <= 1.2 || day >= 29.5) return;
+
+            // 滿月
+            if (day >= 14.5 && day <= 15.5) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#fef08a';
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.fill();
+                return;
+            }
+
+            const isWaxing = day < 15;
+            
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fef08a';
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            if (isWaxing) {
+                ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2);
+            } else {
+                ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2);
+            }
+            ctx.fill();
+
+            let p;
+            ctx.shadowBlur = 0;
+            if (isWaxing) {
+                p = (day - 7.5) / 7.5;
+                ctx.fillStyle = p < 0 ? '#1e293b' : '#fef08a';
+                if (p >= 0) ctx.shadowBlur = 15;
+            } else {
+                p = (day - 22.5) / 7.5;
+                ctx.fillStyle = p > 0 ? '#1e293b' : '#fef08a';
+                if (p <= 0) ctx.shadowBlur = 15;
+            }
+
+            const ellipseWidth = Math.abs(p) * r;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, ellipseWidth, r, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function handleTimeOut() {
+            if (isAnswered) return;
+            isAnswered = true;
+            score -= 5;
+            showFeedback(-5, 'timeout');
+        }
+
+        function handleAnswer(selectedOpt, btnElement) {
+            if (isAnswered) return;
+            isAnswered = true;
+            clearInterval(timerInterval);
+
+            const q = questions[currentQIndex];
+            const isCorrect = selectedOpt === q.correctText;
+            const timeInSeconds = timeLeft / 10;
+            let earned = 0;
+
+            const buttons = document.getElementById('options-container').children;
+            for (let btn of buttons) {
+                if (btn.innerText === q.correctText) {
+                    btn.className = "w-full py-4 rounded-xl border-2 border-green-500 bg-green-600 text-lg font-medium shadow-[0_0_15px_rgba(34,197,94,0.4)]";
+                } else if (btn === btnElement && !isCorrect) {
+                    btn.className = "w-full py-4 rounded-xl border-2 border-red-500 bg-red-600 text-lg font-medium";
+                } else {
+                    btn.className = "w-full py-4 rounded-xl border-2 border-slate-700 bg-slate-800 text-lg font-medium opacity-50";
+                }
+            }
+
+            if (isCorrect) {
+                earned = Math.min(10, Math.floor(timeInSeconds) + 1);
+                score += earned;
+                showFeedback('+' + earned, 'correct');
+            } else {
+                earned = -5;
+                score -= 5;
+                showFeedback(earned, 'wrong');
+            }
+        }
+
+        function showFeedback(changeVal, type) {
+            const pop = document.getElementById('feedback-pop');
+            const txt = document.getElementById('feedback-text');
+            txt.innerText = changeVal;
+            txt.className = `text-5xl font-black drop-shadow-lg animate-bounce ${type === 'correct' ? 'text-green-400' : 'text-red-500'}`;
+            pop.classList.remove('hidden');
+
+            if (type === 'timeout') {
+                document.getElementById('timeout-msg').classList.remove('hidden');
+            }
+
+            setTimeout(() => {
+                currentQIndex++;
+                if (currentQIndex < 5) {
+                    loadQuestion();
+                } else {
+                    showEndScreen();
+                }
+            }, 2000);
+        }
+
+        function showEndScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+
+            const titleEl = document.getElementById('end-title');
+            const descEl = document.getElementById('end-desc');
+
+            if (score === 50) {
+                titleEl.innerText = "打破世界記錄！";
+                titleEl.className = "text-2xl font-bold text-yellow-400";
+                descEl.innerText = "太神啦！你的反應與知識都無懈可擊！";
+            } else if (score >= 30) {
+                titleEl.innerText = "表現非常棒！";
+                titleEl.className = "text-2xl font-bold text-green-400";
+                descEl.innerText = "你對月相的變化有著很好的了解，繼續保持！";
+            } else if (score > 0) {
+                titleEl.innerText = "不錯喔！";
+                titleEl.className = "text-2xl font-bold text-blue-400";
+                descEl.innerText = "距離滿分不遠了，多練習幾次就能成為月相大師！";
+            } else {
+                titleEl.innerText = "再加油！";
+                titleEl.className = "text-2xl font-bold text-red-400";
+                descEl.innerText = "平時多抬頭看看夜晚的星空，請多觀察月亮的變化喔！";
+            }
+        }
+    </script>
+</body>
+</html>
