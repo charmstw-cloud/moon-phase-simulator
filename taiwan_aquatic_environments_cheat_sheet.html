@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣水域環境圖解懶人包 Cheat Sheet</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        ocean: {
+                            DEFAULT: '#0284c7',
+                            dark: '#0369a1',
+                            light: '#e0f2fe'
+                        },
+                        paddy: {
+                            DEFAULT: '#16a34a',
+                            light: '#dcfce7'
+                        },
+                        pond: {
+                            DEFAULT: '#0d9488',
+                            light: '#ccfbf1'
+                        },
+                        wetland: {
+                            DEFAULT: '#d97706',
+                            light: '#fef3c7'
+                        },
+                        lake: {
+                            DEFAULT: '#2563eb',
+                            light: '#dbeafe'
+                        },
+                        river: {
+                            DEFAULT: '#0891b2',
+                            light: '#cffaff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .water-wave {
+            background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(14,165,233,0.1) 100%);
+        }
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 text-white py-8 px-4 shadow-lg">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-sm font-medium mb-3 backdrop-blur-sm">
+                <i class="fa-solid fa-droplet text-cyan-200"></i> 自然與生活科技 · 快速複習卡
+            </div>
+            <h1 class="text-3xl md:text-5xl font-black tracking-tight mb-3">台灣水域環境圖解 Cheat Sheet</h1>
+            <p class="text-blue-100 text-base md:text-lg max-w-2xl mx-auto">
+                一次搞懂台灣的自然與人工水域環境！掌握鹽度、水深、流速與生物特色。
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full space-y-12">
+
+        <!-- Water Landscape Visual Cross-Section -->
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-map text-blue-600"></i> 水域環境地形關係圖
+                </h2>
+                <span class="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">點選下方各水域查看詳情</span>
+            </div>
+            
+            <!-- SVG Diagram -->
+            <div class="w-full overflow-x-auto pb-2">
+                <div class="min-w-[700px] relative bg-gradient-to-b from-sky-50 to-blue-50 rounded-xl p-4 border border-blue-100">
+                    <svg viewBox="0 0 800 220" class="w-full h-auto">
+                        <!-- Background Mountain -->
+                        <path d="M0 160 L120 40 L220 120 L320 80 L420 150 L800 170 L800 220 L0 220 Z" fill="#e2e8f0" />
+                        <path d="M0 170 L100 70 L180 140 L280 95 L380 160 L800 180 L800 220 L0 220 Z" fill="#cbd5e1" />
+
+                        <!-- River Path -->
+                        <path d="M120 40 Q 150 110, 220 130 T 380 150 T 550 175 L 680 185" fill="none" stroke="#06b6d4" stroke-width="8" stroke-linecap="round" />
+
+                        <!-- Lake -->
+                        <ellipse cx="300" cy="135" rx="35" ry="12" fill="#3b82f6" opacity="0.8" />
+                        <text x="300" y="139" font-size="10" text-anchor="middle" fill="white" font-weight="bold">湖泊</text>
+
+                        <!-- Paddy Field -->
+                        <rect x="360" y="138" width="50" height="15" rx="3" fill="#22c55e" opacity="0.8" />
+                        <text x="385" y="149" font-size="10" text-anchor="middle" fill="white" font-weight="bold">水田</text>
+
+                        <!-- Eco Pond -->
+                        <rect x="430" y="148" width="40" height="14" rx="3" fill="#14b8a6" opacity="0.8" />
+                        <text x="450" y="159" font-size="10" text-anchor="middle" fill="white" font-weight="bold">生態池</text>
+
+                        <!-- Wetland -->
+                        <path d="M 520 170 Q 570 172, 620 180 L 620 195 L 520 190 Z" fill="#f59e0b" opacity="0.7" />
+                        <text x="570" y="183" font-size="10" text-anchor="middle" fill="white" font-weight="bold">溼地(潮間帶)</text>
+
+                        <!-- Ocean -->
+                        <path d="M 620 180 Q 700 185, 800 188 L 800 220 L 620 220 Z" fill="#0284c7" />
+                        <text x="720" y="202" font-size="12" text-anchor="middle" fill="white" font-weight="bold">海洋</text>
+
+                        <!-- River Label -->
+                        <text x="180" y="90" font-size="11" fill="#0e7490" font-weight="bold">河川、溪流</text>
+
+                        <!-- Arrows / Flow -->
+                        <path d="M 160 80 L 170 90" stroke="#0891b2" stroke-width="2" marker-end="url(#arrow)" />
+                        <path d="M 490 162 L 510 168" stroke="#0891b2" stroke-width="2" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-4 text-xs text-slate-600 justify-center">
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> 淡水區域 (淡水)</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> 汽水區域 (淡水+鹹水)</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-sky-600 inline-block"></span> 鹹水區域 (鹹水)</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span> 人工造景/農作水域</span>
+            </div>
+        </section>
+
+        <!-- Environment Cards Grid -->
+        <section>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked text-blue-600"></i> 六大水域環境細節
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                <!-- 1. 海洋 (Ocean) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-sky-600 to-blue-700 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">鹹水</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-water"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">海洋</h3>
+                                <p class="text-sky-100 text-xs">Ocean</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-sky-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>特徵：</strong>世界<strong>最大最深</strong>的水域環境。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-sky-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水質：</strong><strong>鹹水</strong>（含有高濃度鹽分）。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-sky-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水流：</strong>有洋流、潮汐與海浪，持續流動。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-sky-50 p-3 rounded-xl border border-sky-100">
+                            <span class="text-xs font-bold text-sky-800 block mb-1"><i class="fa-solid fa-fish"></i> 台灣常見生態：</span>
+                            <p class="text-xs text-sky-900">珊瑚礁魚類、鯨豚、飛魚、綠蠵龜、海藻等。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 水田 (Paddy Field) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-emerald-600 to-green-600 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">人工 / 淡水</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-wheat-awn"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">水田</h3>
+                                <p class="text-emerald-100 text-xs">Paddy Field</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-emerald-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>成因：</strong><strong>人工造成</strong>的農業耕作水域。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-emerald-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>深度與動態：</strong>水質<strong>最淺</strong>、基本<strong>不流動</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-emerald-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>主要用途：</strong>農作物種植與灌溉。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                            <span class="text-xs font-bold text-emerald-800 block mb-1"><i class="fa-solid fa-seedling"></i> 代表農作物與生物：</span>
+                            <div class="flex flex-wrap gap-1.5 mt-1">
+                                <span class="bg-emerald-200 text-emerald-900 text-xs px-2 py-0.5 rounded-md font-medium">水稻</span>
+                                <span class="bg-emerald-200 text-emerald-900 text-xs px-2 py-0.5 rounded-md font-medium">茭白筍</span>
+                                <span class="bg-emerald-200 text-emerald-900 text-xs px-2 py-0.5 rounded-md font-medium">芋頭</span>
+                            </div>
+                            <p class="text-xs text-emerald-800 mt-2">常有青蛙、大肚魚、福壽螺、白鷺鷥出沒。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 生態池 (Ecological Pond) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-teal-600 to-cyan-700 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">人工 / 淡水</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-leaf"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">生態池</h3>
+                                <p class="text-teal-100 text-xs">Ecological Pond</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-teal-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>成因：</strong><strong>人工造成</strong>的生態景觀池塘。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-teal-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>深度與動態：</strong>水深<strong>較淺</strong>、水流<strong>不流動</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-teal-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>主要功能：</strong><strong>美化環境</strong>、<strong>淨化水質</strong>、提供生物棲地。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-teal-50 p-3 rounded-xl border border-teal-100">
+                            <span class="text-xs font-bold text-teal-800 block mb-1"><i class="fa-solid fa-frog"></i> 代表物種：</span>
+                            <p class="text-xs text-teal-900">睡蓮、荷花、香蒲、大萍、蓋斑鬥魚、蜻蜓幼蟲（水蠆）。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 溼地 (Wetland) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-amber-600 to-orange-600 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">鹹水+淡水</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-crow"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">溼地</h3>
+                                <p class="text-amber-100 text-xs">Wetland</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-amber-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>浸水狀況：</strong><strong>永久或暫時泡水</strong>之區域。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-amber-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水深限制：</strong>低潮時水深<strong>小於6公尺</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-amber-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>常見類型：</strong><strong>潮間帶</strong>（河口交界處，混合<strong>鹹水+淡水</strong>＝汽水）。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                            <span class="text-xs font-bold text-amber-800 block mb-1"><i class="fa-solid fa-tree"></i> 台灣代表生態（如高美溼地、四草）：</span>
+                            <p class="text-xs text-amber-900">紅樹林（水筆仔）、招潮蟹, 彈塗魚、黑面琵鷺（候鳥）。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. 湖泊 (Lake) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">淡水</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-sailboat"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">湖泊</h3>
+                                <p class="text-blue-100 text-xs">Lake</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-blue-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水深：</strong>地形凹陷蓄水，水質<strong>較深</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-blue-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水質：</strong>絕大多數為<strong>淡水</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-blue-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水流：</strong>水流<strong>不明顯</strong>（較為平靜）。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                            <span class="text-xs font-bold text-blue-800 block mb-1"><i class="fa-solid fa-mountain text-blue-600"></i> 台灣代表景點：</span>
+                            <p class="text-xs text-blue-900">日月潭、翠峰湖、竹子湖。常見淡水魚類、水鳥與沉水植物。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. 河川、溪流 (River & Stream) -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden card-hover flex flex-col">
+                    <div class="bg-gradient-to-r from-cyan-600 to-blue-500 p-4 text-white relative">
+                        <span class="absolute top-3 right-3 bg-white/20 text-xs px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm">淡水 / 流動</span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-bridge-water"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">河川、溪流</h3>
+                                <p class="text-cyan-100 text-xs">River & Stream</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 space-y-4 flex-grow flex flex-col justify-between">
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-cyan-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水深變化：</strong>受地形影響，<strong>時深時淺</strong>。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-cyan-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>水流特徵：</strong><strong>水流明顯</strong>且急速。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-check text-cyan-500 mt-1 flex-shrink-0"></i>
+                                <span><strong>最終去向：</strong>通常順流而下，<strong>流入湖泊或海洋</strong>。</span>
+                            </li>
+                        </ul>
+                        <div class="bg-cyan-50 p-3 rounded-xl border border-cyan-100">
+                            <span class="text-xs font-bold text-cyan-800 block mb-1"><i class="fa-solid fa-fish-fins"></i> 代表生物：</span>
+                            <p class="text-xs text-cyan-900">櫻花鉤吻鮭（高山）、苦花魚、蝦虎、石蠅幼蟲（附著於岩石）。</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Comparison Table (Cheat Sheet Summary) -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 bg-slate-800 text-white flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-cyan-400"></i> 水域環境對照速查表
+                    </h2>
+                    <p class="text-xs text-slate-300 mt-1">考試重點一把抓！快速比較六大水域的核心屬性。</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
+                            <th class="p-3.5">水域名稱</th>
+                            <th class="p-3.5">自然 / 人工</th>
+                            <th class="p-3.5">鹹淡水性質</th>
+                            <th class="p-3.5">水深特徵</th>
+                            <th class="p-3.5">水流狀況</th>
+                            <th class="p-3.5">核心特色與用途</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 text-slate-700">
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-sky-700">海洋</td>
+                            <td class="p-3.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">自然</span></td>
+                            <td class="p-3.5 font-semibold text-blue-600">鹹水</td>
+                            <td class="p-3.5 font-bold text-red-600">世界最大最深</td>
+                            <td class="p-3.5">波浪/洋流持續流動</td>
+                            <td class="p-3.5">全球最大的水域生態系</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-emerald-700">水田</td>
+                            <td class="p-3.5"><span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">人工</span></td>
+                            <td class="p-3.5">淡水</td>
+                            <td class="p-3.5 font-bold text-emerald-600">最淺</td>
+                            <td class="p-3.5 text-slate-500">不流動</td>
+                            <td class="p-3.5">種植水稻、茭白筍、芋頭</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-teal-700">生態池</td>
+                            <td class="p-3.5"><span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">人工</span></td>
+                            <td class="p-3.5">淡水</td>
+                            <td class="p-3.5">較淺</td>
+                            <td class="p-3.5 text-slate-500">不流動</td>
+                            <td class="p-3.5">美化環境、淨化水質</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-amber-700">溼地</td>
+                            <td class="p-3.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">自然</span></td>
+                            <td class="p-3.5 font-semibold text-amber-600">鹹水 + 淡水 (汽水)</td>
+                            <td class="p-3.5">泡水 / 水深 &lt; 6公尺</td>
+                            <td class="p-3.5">受潮汐影響</td>
+                            <td class="p-3.5">常見潮間帶、生物多樣性高</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-blue-700">湖泊</td>
+                            <td class="p-3.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">自然/人工</span></td>
+                            <td class="p-3.5">淡水</td>
+                            <td class="p-3.5">較深</td>
+                            <td class="p-3.5 text-slate-500">不明顯</td>
+                            <td class="p-3.5">平靜水體，蓄積水量</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3.5 font-bold text-cyan-700">河川、溪流</td>
+                            <td class="p-3.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">自然</span></td>
+                            <td class="p-3.5">淡水</td>
+                            <td class="p-3.5">時深時淺</td>
+                            <td class="p-3.5 font-bold text-cyan-600">水流明顯</td>
+                            <td class="p-3.5">通常流入湖泊或海洋</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Interactive Quick Quiz Mode -->
+        <section class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 md:p-8 rounded-2xl border border-blue-200">
+            <div class="max-w-2xl mx-auto text-center space-y-4">
+                <span class="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">自我測驗</span>
+                <h3 class="text-2xl font-bold text-slate-800">觀念小考驗：你記住了嗎？</h3>
+                <p class="text-sm text-slate-600" id="quiz-question">點擊下方按鈕開始小測驗！</p>
+                
+                <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <!-- Buttons generated dynamically or static setup -->
+                </div>
+
+                <div id="quiz-feedback" class="hidden p-4 rounded-xl text-sm font-bold mt-4"></div>
+                <button id="next-btn" onclick="loadNextQuestion()" class="hidden bg-slate-800 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-slate-700 transition">
+                    下一題 <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-400 py-6 text-center text-xs">
+        <p>台灣水域環境圖解 Cheat Sheet · 適合自然科重點複習與數位學習</p>
+    </footer>
+
+    <!-- Interactive Script -->
+    <script>
+        const questions = [
+            {
+                q: "主要用來種植水稻、茭白筍、芋頭，且水質最淺、不流動的水域是？",
+                options: ["生態池", "水田", "溼地", "湖泊"],
+                answer: 1,
+                explain: "答對了！水田是人工造成的最淺水域，專門用於耕作水稻、茭白筍與芋頭。"
+            },
+            {
+                q: "水深低潮時小於6公尺，常見潮間帶且混合鹹水與淡水的是？",
+                options: ["海洋", "湖泊", "溼地", "河川溪流"],
+                answer: 2,
+                explain: "答對了！溼地常位於河潮交界處，兼具淡水與鹹水（汽水），低潮水深小於6公尺。"
+            },
+            {
+                q: "人工造成、較淺且不流動，主要功能為『美化環境與淨化水質』的是？",
+                options: ["生態池", "水田", "湖泊", "海洋"],
+                answer: 0,
+                explain: "答對了！生態池是人工開闢，用於美化景觀與淨化水質的水域。"
+            },
+            {
+                q: "特徵為『時深時淺、水流明顯』，最後通常會流入湖泊或海洋的是？",
+                options: ["湖泊", "溼地", "河川、溪流", "生態池"],
+                answer: 2,
+                explain: "答對了！河川與溪流的水流十分明顯，隨地形改變深度，最後匯入湖海。"
+            }
+        ];
+
+        let currentQ = 0;
+
+        function renderQuestion() {
+            const q = questions[currentQ];
+            document.getElementById('quiz-question').textContent = `Q${currentQ + 1}: ${q.q}`;
+            const optionsContainer = document.getElementById('quiz-options');
+            const feedback = document.getElementById('quiz-feedback');
+            const nextBtn = document.getElementById('next-btn');
+
+            feedback.classList.add('hidden');
+            nextBtn.classList.add('hidden');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-slate-700 py-3 px-4 rounded-xl font-medium text-sm transition shadow-sm";
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(idx);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selected) {
+            const q = questions[currentQ];
+            const feedback = document.getElementById('quiz-feedback');
+            const nextBtn = document.getElementById('next-btn');
+
+            feedback.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+
+            if (selected === q.answer) {
+                feedback.classList.add('bg-green-100', 'text-green-800');
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check text-green-600 mr-2"></i> ${q.explain}`;
+            } else {
+                feedback.classList.add('bg-red-100', 'text-red-800');
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark text-red-600 mr-2"></i> 不太對喔！正確答案是：<strong>${q.options[q.answer]}</strong>`;
+            }
+
+            nextBtn.classList.remove('hidden');
+        }
+
+        function loadNextQuestion() {
+            currentQ = (currentQ + 1) % questions.length;
+            renderQuestion();
+        }
+
+        // Init
+        window.onload = renderQuestion;
+    </script>
+</body>
+</html>
