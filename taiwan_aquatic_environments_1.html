@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水域動植物分類小遊戲</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        paddy: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        },
+                        pond: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .drag-over {
+            transform: scale(1.02);
+            border-color: #3b82f6 !important;
+            background-color: rgba(239, 246, 255, 0.8) !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+        .item-card {
+            touch-action: none;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .item-card:hover {
+            transform: translateY(-2px);
+        }
+        .item-card.selected {
+            ring: 4px;
+            ring-color: #3b82f6;
+            border-color: #2563eb;
+            background-color: #eff6ff;
+            transform: scale(1.05);
+        }
+        @keyframes pulse-light {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-light 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Canvas for Victory Confetti Animation -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <!-- Header & Scoreboard -->
+    <header class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-md py-4 px-4 sm:px-8">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-3 rounded-2xl backdrop-blur-sm text-2xl">
+                    <i class="fa-solid fa-frog text-yellow-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black tracking-wide">水域生態小挑戰！</h1>
+                    <p class="text-emerald-100 text-xs sm:text-sm font-medium">請將 8 種動植物拖曳或點選放到正確的棲地分類中</p>
+                </div>
+            </div>
+
+            <!-- Score & Controls -->
+            <div class="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20">
+                <div class="text-center px-2">
+                    <span class="block text-xs text-emerald-100">答對配對</span>
+                    <span id="score-text" class="text-2xl font-extrabold text-yellow-300">0 / 8</span>
+                </div>
+                <div class="h-8 w-px bg-white/20"></div>
+                <button id="reset-btn" onclick="resetGame()" class="bg-white text-emerald-800 hover:bg-yellow-300 hover:text-slate-900 transition-colors font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-rotate-right"></i> 重來一次
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="max-w-5xl mx-auto px-4 py-6 w-full flex-grow flex flex-col gap-6">
+
+        <!-- Instruction Banner -->
+        <div class="bg-sky-50 border border-sky-200 text-sky-800 rounded-2xl p-3 sm:p-4 text-xs sm:text-sm flex items-center justify-between gap-2 shadow-sm">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-sky-600 text-base flex-shrink-0"></i>
+                <span><strong>玩法說明：</strong>使用電腦可直接<strong>拖曳卡片</strong>到容器；平板/手機可先<strong>點擊卡片</strong>，再<strong>點擊目標分區</strong>放進去喔！</span>
+            </div>
+        </div>
+
+        <!-- Unclassified Items Pool -->
+        <section class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive text-amber-500"></i> 待分類的動植物（<span id="pool-count">8</span> 個）
+                </h2>
+                <span class="text-xs text-slate-400">滑鼠拖曳或點選卡片</span>
+            </div>
+
+            <div id="item-pool" class="grid grid-cols-2 sm:grid-cols-4 gap-3 min-h-[120px] p-3 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 transition-colors">
+                <!-- Cards will be populated here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Classification Drop Zones -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Zone 1: 水田 (Paddy Field) -->
+            <div id="zone-paddy" 
+                 data-zone="paddy"
+                 onclick="handleZoneClick('paddy')"
+                 ondragover="handleDragOver(event)" 
+                 ondragleave="handleDragLeave(event)" 
+                 ondrop="handleDrop(event, 'paddy')"
+                 class="bg-gradient-to-b from-paddy-50 to-emerald-100/50 rounded-3xl p-5 border-2 border-paddy-200 shadow-sm transition-all relative flex flex-col justify-between min-h-[280px]">
+                <div>
+                    <div class="flex items-center justify-between border-b border-paddy-200 pb-3 mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-paddy-500 text-white flex items-center justify-center text-xl shadow-md">
+                                🌾
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-paddy-800">水田 (Paddy Field)</h3>
+                                <p class="text-xs text-paddy-600 font-medium">人工耕作、最淺、水流不流動</p>
+                            </div>
+                        </div>
+                        <span id="paddy-counter" class="text-xs font-bold bg-paddy-200 text-paddy-800 px-3 py-1 rounded-full">0 / 4</span>
+                    </div>
+
+                    <div id="paddy-items" class="grid grid-cols-2 gap-3 min-h-[160px] p-2 rounded-2xl transition-all">
+                        <!-- Items dropped here -->
+                    </div>
+                </div>
+
+                <div class="mt-3 text-center text-xs text-paddy-600 border-t border-paddy-200/60 pt-2 font-medium">
+                    點擊或拖曳動植物至此區域
+                </div>
+            </div>
+
+            <!-- Zone 2: 生態池 (Ecological Pond) -->
+            <div id="zone-pond" 
+                 data-zone="pond"
+                 onclick="handleZoneClick('pond')"
+                 ondragover="handleDragOver(event)" 
+                 ondragleave="handleDragLeave(event)" 
+                 ondrop="handleDrop(event, 'pond')"
+                 class="bg-gradient-to-b from-pond-50 to-teal-100/50 rounded-3xl p-5 border-2 border-pond-200 shadow-sm transition-all relative flex flex-col justify-between min-h-[280px]">
+                <div>
+                    <div class="flex items-center justify-between border-b border-pond-200 pb-3 mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-pond-500 text-white flex items-center justify-center text-xl shadow-md">
+                                🪷
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-pond-800">生態池 (Eco Pond)</h3>
+                                <p class="text-xs text-pond-600 font-medium">人工景觀池、較淺、美化淨化</p>
+                            </div>
+                        </div>
+                        <span id="pond-counter" class="text-xs font-bold bg-pond-200 text-pond-800 px-3 py-1 rounded-full">0 / 4</span>
+                    </div>
+
+                    <div id="pond-items" class="grid grid-cols-2 gap-3 min-h-[160px] p-2 rounded-2xl transition-all">
+                        <!-- Items dropped here -->
+                    </div>
+                </div>
+
+                <div class="mt-3 text-center text-xs text-pond-600 border-t border-pond-200/60 pt-2 font-medium">
+                    點擊或拖曳動植物至此區域
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Victory Celebration Modal -->
+    <div id="victory-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center transform transition-all scale-95 border-4 border-yellow-300">
+            <div class="w-20 h-20 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 animate-bounce">
+                🏆
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">大獲全勝！太棒了！</h2>
+            <p class="text-slate-600 text-sm mb-6">你已精準將 8 種水域動植物歸類到正確的棲息地中！</p>
+            
+            <div class="bg-emerald-50 rounded-2xl p-4 text-left text-xs text-emerald-800 space-y-2 mb-6 border border-emerald-200">
+                <p class="font-bold text-emerald-900 border-b border-emerald-200 pb-1">💡 小知識總結：</p>
+                <p>• <strong>水田環境：</strong> 泥鰍、石田螺、浮萍、水稻。</p>
+                <p>• <strong>生態池環境：</strong> 褐樹蛙、蓋斑鬥魚、布袋蓮、香蒲。</p>
+            </div>
+
+            <button onclick="resetGame()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-6 rounded-2xl shadow-lg transition transform hover:-translate-y-0.5 text-base">
+                <i class="fa-solid fa-play mr-2"></i> 再玩一次
+            </button>
+        </div>
+    </div>
+
+    <!-- Knowledge Info Drawer/Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4" onclick="closeInfoModal()">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center relative border border-slate-200" onclick="event.stopPropagation()">
+            <button onclick="closeInfoModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="modal-icon" class="text-5xl mb-3">🌱</div>
+            <h3 id="modal-title" class="text-xl font-bold text-slate-800 mb-1">動植物名稱</h3>
+            <span id="modal-tag" class="inline-block bg-slate-100 text-slate-600 text-xs px-3 py-1 rounded-full font-bold mb-3">棲地類型</span>
+            <p id="modal-desc" class="text-slate-600 text-sm leading-relaxed text-left bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">解說內容...</p>
+            <button onclick="closeInfoModal()" class="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 transition">
+                我知道了
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-400 py-4 text-center text-xs">
+        <p>台灣水域環境教學數位教具 · 國小自然與生活科技科輔助教材</p>
+    </footer>
+
+    <script>
+        // Item Database definition
+        const itemData = [
+            { id: 'loach', name: '泥鰍', category: 'paddy', icon: '🐟', type: '動物', desc: '喜愛生活在水田或溝渠的泥底，能在缺氧時用腸道呼吸，是水田泥底常見的底棲魚類。' },
+            { id: 'stone_snail', name: '石田螺', category: 'paddy', icon: '🐚', type: '動物', desc: '台灣原生種螺類，螺塔較尖長，卵胎生（直接產下幼螺），常見於水田與水溝中，對農作物無害。' },
+            { id: 'duckweed', name: '浮萍', category: 'paddy', icon: '🍃', type: '植物', desc: '微小的漂浮植物，喜歡生長在水田等平靜無流動的水面上，繁殖迅速。' },
+            { id: 'rice', name: '水稻', category: 'paddy', icon: '🌾', type: '植物', desc: '水田中最重要的挺水農作物，是人類的主食糧食來源，需要淺水環境栽培。' },
+            { id: 'frog', name: '褐樹蛙', category: 'pond', icon: '🐸', type: '動物', desc: '台灣特有種兩棲類，常在生態池附近的植物或岩石上活動，繁殖期會在平靜池水中產卵。' },
+            { id: 'paradise_fish', name: '蓋斑鬥魚', category: 'pond', icon: '🐠', type: '動物', desc: '台灣原生淡水魚，耐低氧且會吐泡泡築巢，非常喜歡吃生態池中的蚊子幼蟲（孑孓）。' },
+            { id: 'water_hyacinth', name: '布袋蓮', category: 'pond', icon: '🪷', type: '植物', desc: '常見於生態池中的漂浮植物，葉柄膨大如葫蘆，根系發達能吸引懸浮物並淨化水質。' },
+            { id: 'cattail', name: '香蒲', category: 'pond', icon: '🌾', type: '植物', desc: '生態池邊常見的挺水植物，花穗長得像香腸，能保護池岸、淨化水質並提供生物棲所。' }
+        ];
+
+        // State variables
+        let placements = {}; // { itemId: 'paddy' | 'pond' }
+        let selectedItemId = null; // For click-to-select mode
+
+        // Web Audio API Synthesizer sound generator
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'incorrect') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now); // A3
+                osc.frequency.setValueAtTime(180, now + 0.1); // F3
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'win') {
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const noteOsc = audioCtx.createOscillator();
+                    const noteGain = audioCtx.createGain();
+                    noteOsc.connect(noteGain);
+                    noteGain.connect(audioCtx.destination);
+                    noteOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    noteGain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                    noteGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+                    noteOsc.start(now + idx * 0.1);
+                    noteOsc.stop(now + idx * 0.1 + 0.3);
+                });
+            }
+        }
+
+        // Shuffle array helper
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        // Initialize Game
+        function initGame() {
+            placements = {};
+            selectedItemId = null;
+            document.getElementById('victory-modal').classList.add('hidden');
+
+            const poolContainer = document.getElementById('item-pool');
+            const paddyContainer = document.getElementById('paddy-items');
+            const pondContainer = document.getElementById('pond-items');
+
+            poolContainer.innerHTML = '';
+            paddyContainer.innerHTML = '';
+            pondContainer.innerHTML = '';
+
+            const shuffledItems = shuffle([...itemData]);
+
+            shuffledItems.forEach(item => {
+                const card = createItemCard(item);
+                poolContainer.appendChild(card);
+            });
+
+            updateUIState();
+        }
+
+        // Create HTML Card Element
+        function createItemCard(item) {
+            const card = document.createElement('div');
+            card.id = `item-${item.id}`;
+            card.draggable = true;
+            card.className = `item-card bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-sm cursor-grab flex items-center gap-2.5 hover:border-blue-400 active:cursor-grabbing`;
+            
+            card.innerHTML = `
+                <div class="text-2xl pointer-events-none">${item.icon}</div>
+                <div class="pointer-events-none flex-grow min-w-0">
+                    <h4 class="font-bold text-sm text-slate-800 truncate">${item.name}</h4>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">${item.type}</span>
+                </div>
+                <button onclick="event.stopPropagation(); showInfo('${item.id}')" class="text-slate-300 hover:text-blue-500 p-1 text-xs transition" title="查看知識">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
+            `;
+
+            // HTML5 Drag Events
+            card.addEventListener('dragstart', (e) => handleDragStart(e, item.id));
+            card.addEventListener('dragend', handleDragEnd);
+
+            // Click/Tap to Select/Place
+            card.addEventListener('click', (e) => handleItemClick(e, item.id));
+
+            return card;
+        }
+
+        // Handle Item Click Selection
+        function handleItemClick(e, itemId) {
+            e.stopPropagation();
+
+            // If already placed in a correct zone, clicking opens info modal
+            if (placements[itemId]) {
+                showInfo(itemId);
+                return;
+            }
+
+            if (selectedItemId === itemId) {
+                // Deselect
+                selectedItemId = null;
+            } else {
+                selectedItemId = itemId;
+            }
+
+            updateSelectedVisuals();
+        }
+
+        function handleZoneClick(zoneId) {
+            if (!selectedItemId) return;
+
+            placeItem(selectedItemId, zoneId);
+            selectedItemId = null;
+            updateSelectedVisuals();
+        }
+
+        function updateSelectedVisuals() {
+            document.querySelectorAll('.item-card').forEach(card => {
+                const id = card.id.replace('item-', '');
+                if (id === selectedItemId) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+        }
+
+        // Drag handlers
+        function handleDragStart(e, itemId) {
+            e.dataTransfer.setData('text/plain', itemId);
+            e.target.classList.add('opacity-50');
+            selectedItemId = itemId;
+            updateSelectedVisuals();
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('opacity-50');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, zoneId) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const itemId = e.dataTransfer.getData('text/plain') || selectedItemId;
+            if (itemId) {
+                placeItem(itemId, zoneId);
+                selectedItemId = null;
+                updateSelectedVisuals();
+            }
+        }
+
+        // Core Logic: Place item and validate category
+        function placeItem(itemId, targetZone) {
+            const item = itemData.find(i => i.id === itemId);
+            if (!item) return;
+
+            const isCorrect = (item.category === targetZone);
+
+            if (isCorrect) {
+                playSound('correct');
+                placements[itemId] = targetZone;
+
+                const cardEl = document.getElementById(`item-${itemId}`);
+                cardEl.classList.remove('selected', 'border-slate-200', 'bg-white');
+                cardEl.classList.add('border-green-400', 'bg-green-50/80', 'cursor-default');
+                cardEl.draggable = false;
+
+                // Move to target container
+                const targetContainer = document.getElementById(`${targetZone}-items`);
+                targetContainer.appendChild(cardEl);
+
+                updateUIState();
+                checkWinCondition();
+            } else {
+                playSound('incorrect');
+                const zoneEl = document.getElementById(`zone-${targetZone}`);
+                zoneEl.classList.add('animate-bounce');
+                setTimeout(() => zoneEl.classList.remove('animate-bounce'), 500);
+            }
+        }
+
+        // Update score and counters
+        function updateUIState() {
+            const correctCount = Object.keys(placements).length;
+            document.getElementById('score-text').textContent = `${correctCount} / 8`;
+
+            const paddyCount = Object.values(placements).filter(v => v === 'paddy').length;
+            const pondCount = Object.values(placements).filter(v => v === 'pond').length;
+
+            document.getElementById('paddy-counter').textContent = `${paddyCount} / 4`;
+            document.getElementById('pond-counter').textContent = `${pondCount} / 4`;
+
+            const poolCount = 8 - correctCount;
+            document.getElementById('pool-count').textContent = poolCount;
+        }
+
+        function checkWinCondition() {
+            if (Object.keys(placements).length === 8) {
+                setTimeout(() => {
+                    playSound('win');
+                    startConfetti();
+                    document.getElementById('victory-modal').classList.remove('hidden');
+                }, 400);
+            }
+        }
+
+        function resetGame() {
+            stopConfetti();
+            initGame();
+        }
+
+        // Modal for Item Details
+        function showInfo(itemId) {
+            const item = itemData.find(i => i.id === itemId);
+            if (!item) return;
+
+            document.getElementById('modal-icon').textContent = item.icon;
+            document.getElementById('modal-title').textContent = item.name;
+            document.getElementById('modal-tag').textContent = (item.category === 'paddy' ? '🌾 常見於：水田' : '🪷 常見於：生態池') + ` (${item.type})`;
+            document.getElementById('modal-desc').textContent = item.desc;
+
+            document.getElementById('info-modal').classList.remove('hidden');
+        }
+
+        function closeInfoModal() {
+            document.getElementById('info-modal').classList.add('hidden');
+        }
+
+        // Simple Canvas Confetti Effect
+        let confettiInterval = null;
+        function startConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = Array.from({ length: 80 }).map(() => ({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                color: ['#22c55e', '#14b8a6', '#3b82f6', '#f59e0b', '#ec4899'][Math.floor(Math.random() * 5)],
+                size: Math.random() * 8 + 4,
+                speedY: Math.random() * 3 + 2,
+                speedX: Math.random() * 2 - 1
+            }));
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    if (p.y > canvas.height) p.y = -10;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            stopConfetti();
+            confettiInterval = setInterval(render, 1000 / 60);
+        }
+
+        function stopConfetti() {
+            if (confettiInterval) {
+                clearInterval(confettiInterval);
+                confettiInterval = null;
+                const canvas = document.getElementById('confetti-canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Initialize on load
+        window.onload = initGame;
+        window.onresize = () => {
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+    </script>
+</body>
+</html>
