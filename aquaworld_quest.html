@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaWorld Quest - 水域生態大挑戰</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
+        }
+
+        /* Bubble animation background */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            bottom: -50px;
+            animation: floatUp 8s infinite ease-in;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(0.8);
+                opacity: 0.3;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-100vh) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        /* Card styles & Shake animation */
+        .card-option {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-option:hover {
+            transform: translateY(-4px);
+        }
+        .card-selected {
+            border-color: #0284c7 !important;
+            background-color: #e0f2fe !important;
+            box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3);
+            transform: translateY(-2px);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake-animation {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes pulseSuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse-success {
+            animation: pulseSuccess 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative overflow-hidden h-screen w-screen flex flex-col justify-between text-slate-800 select-none p-3 md:p-5">
+
+    <!-- Background Floating Bubbles -->
+    <div id="bubble-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <!-- Main Container - Optimized for 16:9 Landscape without vertical scrolling -->
+    <div class="relative z-10 container mx-auto max-w-5xl h-full flex flex-col justify-between">
+        
+        <!-- Header Title -->
+        <header class="text-center shrink-0 mb-1">
+            <div class="inline-flex items-center gap-2 bg-white/80 backdrop-blur px-5 py-1.5 rounded-full shadow-md border border-cyan-200">
+                <span class="text-2xl">🌊</span>
+                <h1 class="text-xl md:text-2xl font-black text-cyan-900 tracking-wide">AquaWorld Quest</h1>
+                <span class="text-xs bg-cyan-600 text-white font-bold px-2 py-0.5 rounded-full ml-1">水域生態大挑戰</span>
+            </div>
+        </header>
+
+        <!-- START SCREEN -->
+        <div id="start-screen" class="my-auto bg-white/90 backdrop-blur-md rounded-3xl p-5 md:p-7 shadow-xl border-2 border-white text-center max-w-2xl mx-auto w-full">
+            <div class="w-20 h-20 mx-auto mb-3 bg-cyan-100 rounded-full flex items-center justify-center text-4xl shadow-inner animate-bounce">
+                🐠
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">歡迎來到 AquaWorld Quest！</h2>
+            <div class="text-left bg-cyan-50/80 p-3.5 rounded-2xl border border-cyan-100 mb-5 text-slate-700 text-xs md:text-sm space-y-1.5">
+                <p class="font-bold text-cyan-900"><i class="fa-solid fa-circle-info mr-2"></i>遊戲規則：</p>
+                <ul class="list-disc list-inside space-y-1 pl-1">
+                    <li>依次挑戰 <span class="font-bold text-cyan-700">4 種水域環境</span>（水田、生態池、河川、海洋）。</li>
+                    <li>每題會列出 <span class="font-bold text-cyan-700">4 個生物選項</span>（2 個正確，2 個干擾項）。</li>
+                    <li>選出 <span class="font-bold text-emerald-600">2 個屬於該水域的動植物</span> 即可過關！</li>
+                    <li>若答錯將會自動重新刷新選項重新嘗試。</li>
+                </ul>
+            </div>
+            <button onclick="startGame()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-black text-lg py-3 rounded-2xl shadow-lg transition duration-200 transform active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> 開始挑戰
+            </button>
+        </div>
+
+        <!-- GAME SCREEN (16:9 Split 2-Column Layout) -->
+        <div id="game-screen" class="hidden my-auto bg-white/95 backdrop-blur-md rounded-3xl p-4 md:p-6 shadow-xl border-2 border-white flex-1 flex flex-col justify-between max-h-[88vh]">
+            
+            <!-- Top Bar: Progress & Timer -->
+            <div class="flex items-center justify-between shrink-0 mb-3 bg-slate-100/80 px-4 py-2 rounded-2xl">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold bg-cyan-600 text-white px-2.5 py-1 rounded-lg">關卡</span>
+                    <span id="question-number" class="font-black text-cyan-900 text-base md:text-lg">1 / 4</span>
+                </div>
+                <!-- Progress Dots -->
+                <div id="progress-dots" class="flex gap-2">
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                </div>
+                <!-- Timer -->
+                <div class="flex items-center gap-2 font-mono text-cyan-800 font-bold text-base md:text-lg bg-white px-3 py-0.5 rounded-xl shadow-sm border border-slate-200">
+                    <i class="fa-solid fa-stopwatch text-cyan-600"></i>
+                    <span id="timer-text">0.0s</span>
+                </div>
+            </div>
+
+            <!-- Main Content Grid (Left: Target Env, Right: 4 Options) -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-stretch my-auto flex-1">
+                
+                <!-- Target Environment Card (Left Column) -->
+                <div id="env-card" class="md:col-span-2 rounded-2xl p-4 flex flex-col items-center justify-center text-center border-2 transition-all duration-300 shadow-sm min-h-[160px]">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">請選出屬於以下環境的 2 個動植物</div>
+                    <div id="env-title" class="text-3xl md:text-4xl font-black flex items-center justify-center gap-3">
+                        <span id="env-icon" class="text-4xl md:text-5xl">🌾</span>
+                        <span id="env-name" class="underline underline-offset-8 decoration-cyan-400">水田</span>
+                    </div>
+                </div>
+
+                <!-- Options Grid (Right Column - 2x2 Buttons) -->
+                <div id="options-grid" class="md:col-span-3 grid grid-cols-2 gap-3 items-stretch">
+                    <!-- 4 Options generated by JS -->
+                </div>
+
+            </div>
+
+            <!-- Status Banner / Helper Message -->
+            <div id="status-message" class="shrink-0 mt-3 text-center font-bold h-7 flex items-center justify-center text-slate-600 text-sm">
+                <span>請點擊選擇 <span id="remaining-count" class="text-cyan-600 font-black text-lg">2</span> 個選項</span>
+            </div>
+        </div>
+
+        <!-- RESULT SCREEN -->
+        <div id="result-screen" class="hidden my-auto bg-white/95 backdrop-blur-md rounded-3xl p-5 md:p-6 shadow-xl border-2 border-white text-center flex-1 flex flex-col justify-between max-h-[88vh] overflow-y-auto">
+            <div>
+                <div class="text-5xl mb-2" id="result-emoji">🎉</div>
+                <h2 class="text-2xl font-black text-slate-800 mb-1">AquaWorld Quest 挑戰成功！</h2>
+                <p class="text-slate-500 text-xs md:text-sm mb-4">你已成功掌握四大水域生態生物對照！</p>
+
+                <!-- Score Stats Box -->
+                <div class="grid grid-cols-2 gap-3 mb-4 max-w-lg mx-auto">
+                    <div class="bg-cyan-50 p-3 rounded-2xl border border-cyan-100">
+                        <div class="text-xs font-bold text-cyan-700 mb-0.5">總花費時間</div>
+                        <div id="final-time" class="text-2xl md:text-3xl font-black text-cyan-900 font-mono">0.0 秒</div>
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-2xl border border-amber-100">
+                        <div class="text-xs font-bold text-amber-700 mb-0.5">重試次數</div>
+                        <div id="final-retries" class="text-2xl md:text-3xl font-black text-amber-900">0 次</div>
+                    </div>
+                </div>
+
+                <!-- Feedback Badge -->
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-4 max-w-lg mx-auto">
+                    <div id="feedback-badge" class="inline-block bg-cyan-600 text-white text-xs font-bold px-3 py-0.5 rounded-full mb-1">生態防衛隊長</div>
+                    <p id="feedback-text" class="text-slate-700 font-bold text-xs md:text-sm">反應神速且完全正確！你是真正的水域生態大師！</p>
+                </div>
+
+                <!-- Summary Table Grid -->
+                <div class="text-left max-w-2xl mx-auto mb-4">
+                    <h3 class="font-bold text-slate-800 text-xs md:text-sm mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-book-open text-cyan-600"></i> 四大水域生態圖鑑總覽：
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2 text-xs" id="summary-grid">
+                        <!-- Dynamic summary cards inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="w-full max-w-md mx-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-lg py-3 rounded-2xl shadow-lg transition duration-200 transform active:scale-95 flex items-center justify-center gap-2 shrink-0">
+                <i class="fa-solid fa-rotate-right"></i> 再玩一次
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center text-[11px] text-cyan-900/60 font-medium shrink-0 pt-1">
+            AquaWorld Quest &copy; 2026 水域生態大挑戰
+        </footer>
+
+    </div>
+
+    <script>
+        // --- DATA STRUCTURE ---
+        const ECOSYSTEMS = [
+            {
+                id: 'paddy',
+                name: '水田',
+                icon: '🌾',
+                themeClass: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+                items: [
+                    { name: '泥鰍', category: 'animal', icon: '🐟' },
+                    { name: '石田螺', category: 'animal', icon: '🐚' },
+                    { name: '浮萍', category: 'plant', icon: '🌿' },
+                    { name: '水稻', category: 'plant', icon: '🌾' }
+                ]
+            },
+            {
+                id: 'pond',
+                name: '生態池',
+                icon: '🐸',
+                themeClass: 'bg-teal-50 border-teal-300 text-teal-900',
+                items: [
+                    { name: '褐樹蛙', category: 'animal', icon: '🐸' },
+                    { name: '蓋斑鬥魚', category: 'animal', icon: '🐠' },
+                    { name: '布袋蓮', category: 'plant', icon: '🌸' },
+                    { name: '香蒲', category: 'plant', icon: '🌾' }
+                ]
+            },
+            {
+                id: 'river',
+                name: '河川',
+                icon: '🏞️',
+                themeClass: 'bg-cyan-50 border-cyan-300 text-cyan-900',
+                items: [
+                    { name: '苦花魚', category: 'animal', icon: '🐟' },
+                    { name: '拉氏清溪蟹', category: 'animal', icon: '🦀' },
+                    { name: '臺灣水龍', category: 'plant', icon: '🌱' }
+                ]
+            },
+            {
+                id: 'ocean',
+                name: '海洋',
+                icon: '🌊',
+                themeClass: 'bg-blue-50 border-blue-300 text-blue-900',
+                items: [
+                    { name: '海龜', category: 'animal', icon: '🐢' },
+                    { name: '小丑魚', category: 'animal', icon: '🐠' },
+                    { name: '海藻', category: 'plant', icon: '🌿' }
+                ]
+            }
+        ];
+
+        // --- GAME STATE ---
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let currentOptions = [];
+        let selectedIndices = [];
+        let isProcessing = false;
+        let retryCount = 0;
+
+        // Timer State
+        let startTime = 0;
+        let timerInterval = null;
+        let totalElapsedSeconds = 0;
+
+        // Web Audio API Synthesizer
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            try {
+                const ctx = getAudioContext();
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'select') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'correct') {
+                    // Chime melody
+                    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                        const o = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        g.gain.setValueAtTime(0.2, now + idx * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.25);
+                        o.start(now + idx * 0.1);
+                        o.stop(now + idx * 0.1 + 0.25);
+                    });
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'victory') {
+                    // Fanfare
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const o = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.type = 'sine';
+                        o.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        g.gain.setValueAtTime(0.25, now + idx * 0.12);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.35);
+                        o.start(now + idx * 0.12);
+                        o.stop(now + idx * 0.12 + 0.35);
+                    });
+                }
+            } catch (e) {
+                // Audio fallback silence
+            }
+        }
+
+        // Create Floating Background Bubbles
+        function initBubbles() {
+            const container = document.getElementById('bubble-container');
+            container.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                const size = Math.random() * 40 + 15;
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.animationDelay = `${Math.random() * 6}s`;
+                bubble.style.animationDuration = `${Math.random() * 4 + 6}s`;
+                container.appendChild(bubble);
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                document.getElementById('timer-text').innerText = elapsed.toFixed(1) + 's';
+            }, 100);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            totalElapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+        }
+
+        // Shuffle helper
+        function shuffleArray(arr) {
+            const array = [...arr];
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startGame() {
+            getAudioContext();
+            playSound('select');
+            
+            // Randomize order of 4 environments
+            currentQuestions = shuffleArray(ECOSYSTEMS);
+            currentQuestionIndex = 0;
+            retryCount = 0;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            startTimer();
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            isProcessing = false;
+            selectedIndices = [];
+            const currentEnv = currentQuestions[currentQuestionIndex];
+
+            // Update Progress Bar & Header
+            document.getElementById('question-number').innerText = `${currentQuestionIndex + 1} / 4`;
+            
+            const dots = document.getElementById('progress-dots').children;
+            for (let i = 0; i < dots.length; i++) {
+                if (i < currentQuestionIndex) {
+                    dots[i].className = 'w-3 h-3 rounded-full bg-emerald-500 shadow-sm';
+                } else if (i === currentQuestionIndex) {
+                    dots[i].className = 'w-3 h-3 rounded-full bg-cyan-600 animate-pulse';
+                } else {
+                    dots[i].className = 'w-3 h-3 rounded-full bg-slate-300';
+                }
+            }
+
+            // Update Target Environment Display
+            const envCard = document.getElementById('env-card');
+            envCard.className = `rounded-2xl p-5 mb-6 text-center border-2 transition-all duration-300 shadow-sm ${currentEnv.themeClass}`;
+            document.getElementById('env-icon').innerText = currentEnv.icon;
+            document.getElementById('env-name').innerText = currentEnv.name;
+
+            // Generate 4 Options (2 Correct, 2 Wrong)
+            generateOptions(currentEnv);
+            updateStatusMessage();
+        }
+
+        function generateOptions(targetEnv) {
+            // 1. Pick 2 distinct correct items from target environment
+            const correctPool = shuffleArray(targetEnv.items);
+            const correctItems = correctPool.slice(0, 2).map(item => ({
+                ...item,
+                isCorrect: true,
+                envName: targetEnv.name
+            }));
+
+            // 2. Pick 2 distinct incorrect items from ALL other environments
+            const wrongPool = [];
+            ECOSYSTEMS.forEach(env => {
+                if (env.id !== targetEnv.id) {
+                    env.items.forEach(item => {
+                        wrongPool.push({
+                            ...item,
+                            isCorrect: false,
+                            envName: env.name
+                        });
+                    });
+                }
+            });
+
+            const shuffledWrong = shuffleArray(wrongPool);
+            const wrongItems = shuffledWrong.slice(0, 2);
+
+            // Combine and Shuffle
+            currentOptions = shuffleArray([...correctItems, ...wrongItems]);
+
+            // Render options
+            renderOptions();
+        }
+
+        function renderOptions() {
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+
+            currentOptions.forEach((opt, idx) => {
+                const button = document.createElement('button');
+                button.setAttribute('type', 'button');
+                button.onclick = () => toggleSelectOption(idx);
+                button.id = `opt-btn-${idx}`;
+                button.className = `card-option relative flex flex-col items-center justify-center p-3 md:p-4 bg-white border-2 border-slate-200 rounded-2xl shadow-sm text-slate-800 focus:outline-none transition-all h-full min-h-[75px]`;
+
+                button.innerHTML = `
+                    <div class="text-2xl md:text-3xl mb-1 pointer-events-none">${opt.icon}</div>
+                    <div class="font-bold text-sm md:text-base pointer-events-none">${opt.name}</div>
+                    <div class="text-[10px] text-slate-400 font-medium pointer-events-none">
+                        ${opt.category === 'animal' ? '動物' : '植物'}
+                    </div>
+                    <!-- Checkmark Badge -->
+                    <div id="check-${idx}" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-cyan-600 text-white flex items-center justify-center text-[10px] opacity-0 scale-50 transition-all duration-200">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                `;
+
+                grid.appendChild(button);
+            });
+        }
+
+        function toggleSelectOption(index) {
+            if (isProcessing) return;
+
+            const selectedPos = selectedIndices.indexOf(index);
+
+            if (selectedPos > -1) {
+                // Deselect
+                selectedIndices.splice(selectedPos, 1);
+                playSound('select');
+            } else {
+                // Select (Max 2)
+                if (selectedIndices.length < 2) {
+                    selectedIndices.push(index);
+                    playSound('select');
+                } else {
+                    return; // Already selected 2
+                }
+            }
+
+            // Update Option UI Styles
+            currentOptions.forEach((_, idx) => {
+                const btn = document.getElementById(`opt-btn-${idx}`);
+                const check = document.getElementById(`check-${idx}`);
+
+                if (selectedIndices.includes(idx)) {
+                    btn.classList.add('card-selected');
+                    check.classList.remove('opacity-0', 'scale-50');
+                    check.classList.add('opacity-100', 'scale-100');
+                } else {
+                    btn.classList.remove('card-selected');
+                    check.classList.add('opacity-0', 'scale-50');
+                    check.classList.remove('opacity-100', 'scale-100');
+                }
+            });
+
+            updateStatusMessage();
+
+            // When 2 options selected -> Automatically verify answer!
+            if (selectedIndices.length === 2) {
+                verifyAnswer();
+            }
+        }
+
+        function updateStatusMessage() {
+            const remaining = 2 - selectedIndices.length;
+            const statusEl = document.getElementById('status-message');
+            if (remaining > 0) {
+                statusEl.innerHTML = `<span>還需點選 <span class="text-cyan-600 font-black text-lg">${remaining}</span> 個選項</span>`;
+            } else {
+                statusEl.innerHTML = `<span class="text-cyan-700 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1"></i> 檢查答案中...</span>`;
+            }
+        }
+
+        function verifyAnswer() {
+            isProcessing = true;
+
+            const selectedOptions = selectedIndices.map(idx => currentOptions[idx]);
+            const allCorrect = selectedOptions.every(opt => opt.isCorrect);
+
+            setTimeout(() => {
+                if (allCorrect) {
+                    // CORRECT!
+                    playSound('correct');
+                    
+                    // Add pulse effect to selected cards
+                    selectedIndices.forEach(idx => {
+                        const btn = document.getElementById(`opt-btn-${idx}`);
+                        btn.classList.add('bg-emerald-100', 'border-emerald-500', 'pulse-success');
+                    });
+
+                    document.getElementById('status-message').innerHTML = `<span class="text-emerald-600 font-black text-lg"><i class="fa-solid fa-circle-check mr-1"></i> 答對了！非常優秀！</span>`;
+
+                    setTimeout(() => {
+                        currentQuestionIndex++;
+                        if (currentQuestionIndex < currentQuestions.length) {
+                            loadQuestion();
+                        } else {
+                            finishGame();
+                        }
+                    }, 1100);
+
+                } else {
+                    // INCORRECT!
+                    playSound('wrong');
+                    retryCount++;
+
+                    // Shake options grid
+                    const grid = document.getElementById('options-grid');
+                    grid.classList.add('shake-animation');
+
+                    selectedIndices.forEach(idx => {
+                        const btn = document.getElementById(`opt-btn-${idx}`);
+                        btn.classList.add('bg-rose-100', 'border-rose-400');
+                    });
+
+                    document.getElementById('status-message').innerHTML = `<span class="text-rose-600 font-black"><i class="fa-solid fa-circle-xmark mr-1"></i> 答錯囉！請重新嘗試～</span>`;
+
+                    setTimeout(() => {
+                        grid.classList.remove('shake-animation');
+                        // Reshuffle options for the current environment
+                        const currentEnv = currentQuestions[currentQuestionIndex];
+                        selectedIndices = [];
+                        generateOptions(currentEnv);
+                        updateStatusMessage();
+                        isProcessing = false;
+                    }, 1200);
+                }
+            }, 300);
+        }
+
+        function finishGame() {
+            stopTimer();
+            playSound('victory');
+
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            document.getElementById('final-time').innerText = `${totalElapsedSeconds} 秒`;
+            document.getElementById('final-retries').innerText = `${retryCount} 次`;
+
+            // Calculate feedback based on time & retries
+            const seconds = parseFloat(totalElapsedSeconds);
+            let badgeText = '';
+            let feedback = '';
+            let emoji = '🏆';
+
+            if (seconds <= 20 && retryCount === 0) {
+                badgeText = '👑 頂級生態大師';
+                feedback = '太厲害了！反應神速且完全沒失誤，你對水域生態瞭如指掌！';
+                emoji = '🎉';
+            } else if (seconds <= 35 && retryCount <= 2) {
+                badgeText = '🌟 生態探索達人';
+                feedback = '表現相當出色！迅速找出了正確的水域動植物！';
+                emoji = '⭐';
+            } else if (retryCount <= 5) {
+                badgeText = '🌱 生態學習新星';
+                feedback = '順利通關！多複習幾次，你的作答速度會越來越快喔！';
+                emoji = '👏';
+            } else {
+                badgeText = '🔍 生態小觀察家';
+                feedback = '加油！持續觀察四大水域生態，下次一定能拿高分！';
+                emoji = '💪';
+            }
+
+            document.getElementById('result-emoji').innerText = emoji;
+            document.getElementById('feedback-badge').innerText = badgeText;
+            document.getElementById('feedback-text').innerText = feedback;
+
+            // Render Reference Summary Table Cards
+            const summaryGrid = document.getElementById('summary-grid');
+            summaryGrid.innerHTML = '';
+
+            ECOSYSTEMS.forEach(env => {
+                const animals = env.items.filter(i => i.category === 'animal').map(i => `${i.icon}${i.name}`).join('、');
+                const plants = env.items.filter(i => i.category === 'plant').map(i => `${i.icon}${i.name}`).join('、');
+
+                const card = document.createElement('div');
+                card.className = 'bg-white p-3 rounded-xl border border-slate-200 shadow-sm';
+                card.innerHTML = `
+                    <div class="font-black text-cyan-900 text-sm mb-1 flex items-center gap-1.5">
+                        <span>${env.icon}</span> ${env.name}
+                    </div>
+                    <div class="text-slate-600"><span class="font-bold text-slate-700">動物：</span>${animals}</div>
+                    <div class="text-slate-600 mt-0.5"><span class="font-bold text-slate-700">植物：</span>${plants || '無'}</div>
+                `;
+                summaryGrid.appendChild(card);
+            });
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        // Initialize bubbles on page load
+        window.onload = function() {
+            initBubbles();
+        };
+    </script>
+</body>
+</html>
