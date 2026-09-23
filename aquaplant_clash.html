@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AquaPlant Clash - 水生植物雙人搶答對決</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Buzzer Glow Animations */
+        .buzz-p1-active {
+            box-shadow: 0 0 50px rgba(14, 165, 233, 0.9);
+            animation: pulseGlowP1 0.6s infinite alternate;
+        }
+        .buzz-p2-active {
+            box-shadow: 0 0 50px rgba(244, 63, 94, 0.9);
+            animation: pulseGlowP2 0.6s infinite alternate;
+        }
+
+        @keyframes pulseGlowP1 {
+            from { transform: scale(1); box-shadow: 0 0 20px rgba(14, 165, 233, 0.6); }
+            to { transform: scale(1.03); box-shadow: 0 0 50px rgba(14, 165, 233, 1); }
+        }
+
+        @keyframes pulseGlowP2 {
+            from { transform: scale(1); box-shadow: 0 0 20px rgba(244, 63, 94, 0.6); }
+            to { transform: scale(1.03); box-shadow: 0 0 50px rgba(244, 63, 94, 1); }
+        }
+
+        /* Shake animation for wrong answer */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-12px); }
+            40%, 80% { transform: translateX(12px); }
+        }
+        .shake-effect {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Confetti particle styling */
+        .confetti {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #f00;
+            opacity: 0.8;
+            border-radius: 3px;
+            animation: confettiFall 3s ease-in infinite;
+            pointer-events: none;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen w-screen overflow-hidden flex flex-col justify-between p-3 select-none">
+
+    <script>
+        /* Audio Synthesizer using Web Audio API */
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'buzz') {
+                    // Alarm Buzzer
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'correct') {
+                    // Success Fanfare
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, now + i * 0.08);
+                        g.gain.setValueAtTime(0.25, now + i * 0.08);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+                        o.start(now + i * 0.08);
+                        o.stop(now + i * 0.08 + 0.25);
+                    });
+                } else if (type === 'wrong') {
+                    // Low Buzzer
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.setValueAtTime(100, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'tick') {
+                    // Countdown tick
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                }
+            } catch (e) {
+                console.log('Audio disabled/failed', e);
+            }
+        }
+    </script>
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="relative z-20 m-auto bg-slate-800/90 border-2 border-cyan-500/50 rounded-3xl p-6 md:p-8 max-w-3xl w-full text-center shadow-2xl backdrop-blur">
+        <div class="inline-block bg-cyan-500/20 text-cyan-300 px-4 py-1 rounded-full text-xs md:text-sm font-bold mb-3 border border-cyan-400/30">
+            🌿 雙人觸控大螢幕對決遊戲
+        </div>
+        <h1 class="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-rose-400 mb-3">
+            AquaPlant Clash
+        </h1>
+        <h2 class="text-lg md:text-xl font-bold text-slate-300 mb-6">水生植物四大類型大搶答</h2>
+
+        <!-- Instructions Grid -->
+        <div class="grid grid-cols-2 gap-4 mb-6 text-left text-xs md:text-sm">
+            <div class="bg-cyan-950/60 p-4 rounded-2xl border border-cyan-500/30">
+                <div class="font-bold text-cyan-400 text-base mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad"></i> 玩家 1 (藍隊)
+                </div>
+                <p class="text-slate-300">左側按下「搶答」鍵搶優先答題權。<br>答對 <span class="text-emerald-400 font-bold">+10 分</span>，答錯 <span class="text-rose-400 font-bold">-5 分</span>！</p>
+            </div>
+            <div class="bg-rose-950/60 p-4 rounded-2xl border border-rose-500/30">
+                <div class="font-bold text-rose-400 text-base mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad"></i> 玩家 2 (紅隊)
+                </div>
+                <p class="text-slate-300">右側按下「搶答」鍵搶優先答題權。<br>若對方答錯，將啟動<span class="text-amber-300 font-bold">「偷答轉移」</span>搶分！</p>
+            </div>
+        </div>
+
+        <button onclick="startGame()" class="w-full bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-xl md:text-2xl py-4 rounded-2xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-3">
+            <i class="fa-solid fa-bolt"></i> 開始雙人決鬥
+        </button>
+    </div>
+
+    <!-- MAIN GAME SCREEN (Hidden initially) -->
+    <div id="game-screen" class="hidden h-full w-full flex flex-col justify-between relative">
+        
+        <!-- TOP HUD: Player Scores & Status -->
+        <header class="flex items-center justify-between gap-3 bg-slate-800/90 p-3 rounded-2xl border border-slate-700 shadow-md">
+            <!-- Player 1 Score Box -->
+            <div id="p1-score-box" class="flex items-center gap-3 bg-cyan-950/80 border-2 border-cyan-500/60 px-4 py-2 rounded-xl text-cyan-300 transition-all duration-300">
+                <div class="text-left">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">P1 藍隊</div>
+                    <div id="p1-score" class="text-2xl md:text-3xl font-black">0</div>
+                </div>
+            </div>
+
+            <!-- Central Game Progress & Timer -->
+            <div class="text-center">
+                <div class="text-xs font-bold text-slate-400 mb-0.5">
+                    題目 <span id="q-index" class="text-cyan-400 font-black">1</span> / <span id="q-total">10</span>
+                </div>
+                <div id="timer-badge" class="inline-flex items-center gap-1.5 bg-slate-900 border border-amber-500/50 text-amber-400 px-3 py-1 rounded-full text-base font-black">
+                    <i class="fa-solid fa-stopwatch animate-spin"></i>
+                    <span id="timer-sec">搶答中</span>
+                </div>
+            </div>
+
+            <!-- Player 2 Score Box -->
+            <div id="p2-score-box" class="flex items-center gap-3 bg-rose-950/80 border-2 border-rose-500/60 px-4 py-2 rounded-xl text-rose-300 transition-all duration-300">
+                <div class="text-right">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-rose-400">P2 紅隊</div>
+                    <div id="p2-score" class="text-2xl md:text-3xl font-black">0</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN ARENA: 3-COLUMN LAYOUT (P1 Buzz | Question & Options | P2 Buzz) -->
+        <main class="grid grid-cols-12 gap-3 my-auto items-stretch h-[calc(100vh-120px)] p-1">
+            
+            <!-- LEFT: P1 BUZZ BUTTON -->
+            <div class="col-span-3 flex flex-col justify-center">
+                <button id="p1-buzz-btn" 
+                        ontouchstart="handleBuzz('p1', event)" 
+                        onmousedown="handleBuzz('p1', event)"
+                        class="w-full h-full bg-gradient-to-b from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 active:scale-95 text-white font-black text-2xl md:text-4xl rounded-3xl border-4 border-cyan-300 shadow-2xl flex flex-col items-center justify-center gap-3 transition duration-150">
+                    <i class="fa-solid fa-hand-pointer text-4xl md:text-6xl animate-bounce"></i>
+                    <span>P1 搶答</span>
+                    <span class="text-xs md:text-sm font-normal text-cyan-200 bg-cyan-900/60 px-3 py-1 rounded-full">藍隊專用</span>
+                </button>
+            </div>
+
+            <!-- CENTER: QUESTION CARD & OPTIONS -->
+            <div id="arena-card" class="col-span-6 bg-slate-800/90 border-2 border-slate-700 rounded-3xl p-4 md:p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                
+                <!-- Status Overlay Banner -->
+                <div id="status-banner" class="bg-cyan-500 text-slate-950 text-center font-black py-1.5 px-3 rounded-xl text-sm md:text-base mb-2 shadow-md">
+                    ⚡ 請按兩側搶答鈕！
+                </div>
+
+                <!-- Question Text Box -->
+                <div class="my-auto text-center py-2">
+                    <span id="q-category-tag" class="inline-block bg-teal-500/20 text-teal-300 text-xs font-bold px-3 py-1 rounded-full mb-2 border border-teal-500/30">
+                        水生植物特徵辨識
+                    </span>
+                    <h3 id="question-text" class="text-lg md:text-2xl font-black leading-relaxed text-slate-100">
+                        題目載入中...
+                    </h3>
+                </div>
+
+                <!-- 4 Answer Options (Locked until buzzed in) -->
+                <div id="options-container" class="grid grid-cols-2 gap-2.5 mt-2">
+                    <!-- Dynamic option buttons -->
+                </div>
+            </div>
+
+            <!-- RIGHT: P2 BUZZ BUTTON -->
+            <div class="col-span-3 flex flex-col justify-center">
+                <button id="p2-buzz-btn" 
+                        ontouchstart="handleBuzz('p2', event)" 
+                        onmousedown="handleBuzz('p2', event)"
+                        class="w-full h-full bg-gradient-to-b from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 active:scale-95 text-white font-black text-2xl md:text-4xl rounded-3xl border-4 border-rose-300 shadow-2xl flex flex-col items-center justify-center gap-3 transition duration-150">
+                    <i class="fa-solid fa-hand-pointer text-4xl md:text-6xl animate-bounce"></i>
+                    <span>P2 搶答</span>
+                    <span class="text-xs md:text-sm font-normal text-rose-200 bg-rose-900/60 px-3 py-1 rounded-full">紅隊專用</span>
+                </button>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- RESULT SCREEN (Hidden initially) -->
+    <div id="result-screen" class="hidden relative z-30 m-auto bg-slate-800/95 border-2 border-cyan-500/50 rounded-3xl p-6 md:p-8 max-w-2xl w-full text-center shadow-2xl backdrop-blur">
+        <div id="confetti-container" class="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl"></div>
+        
+        <div class="text-5xl mb-2" id="winner-emoji">🏆</div>
+        <h2 id="winner-title" class="text-3xl md:text-4xl font-black text-amber-400 mb-1">P1 藍隊 獲勝！</h2>
+        <p class="text-slate-400 text-xs md:text-sm mb-6">水生植物生態學霸誕生！</p>
+
+        <!-- Final Score Comparison Table -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-cyan-950/80 border-2 border-cyan-500/50 p-4 rounded-2xl">
+                <div class="text-cyan-400 font-bold text-sm mb-1">P1 藍隊 最終得分</div>
+                <div id="final-p1-score" class="text-4xl font-black text-cyan-300">0</div>
+            </div>
+            <div class="bg-rose-950/80 border-2 border-rose-500/50 p-4 rounded-2xl">
+                <div class="text-rose-400 font-bold text-sm mb-1">P2 紅隊 最終得分</div>
+                <div id="final-p2-score" class="text-4xl font-black text-rose-300">0</div>
+            </div>
+        </div>
+
+        <!-- Summary Review Box -->
+        <div class="bg-slate-900/80 p-4 rounded-2xl text-left border border-slate-700 mb-6 text-xs text-slate-300 space-y-1">
+            <div class="font-bold text-cyan-400 mb-1"><i class="fa-solid fa-book-bookmark mr-1"></i> 水生植物四大類重點複習：</div>
+            <p>• <strong>漂浮性：</strong> 根懸浮水中，葉隨水流漂浮 (如：布袋蓮、大萍)。</p>
+            <p>• <strong>沉水性：</strong> 全株沉在水中，質地柔軟順應水流 (如：水蘊草)。</p>
+            <p>• <strong>浮葉性：</strong> 葉片平貼水面，根長在泥土中 (如：睡蓮)。</p>
+            <p>• <strong>挺水性：</strong> 莖葉直立挺出水面，具中空管道 (如：蓮/荷花)。</p>
+        </div>
+
+        <button onclick="startGame()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xl py-3.5 rounded-2xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-right"></i> 再對決一次
+        </button>
+    </div>
+
+    <script>
+        /* QUESTIONS DATASET (Aquatic Plants - 10 Questions) */
+        const QUESTION_DATABASE = [
+            {
+                q: "布袋蓮具有膨大的氣囊葉柄，主要功能是什麼？",
+                options: ["儲存空氣幫助漂浮", "吸收水底養分", "抵禦魚類咬食", "抓住底層泥土"],
+                ans: 0,
+                tag: "構造功能"
+            },
+            {
+                q: "水蘊草全株浸沒在水中，莖葉非常柔軟，這是為了？",
+                options: ["防止被強光曬傷", "順應水流減少衝擊", "方便吸收空氣", "吸引水生昆蟲"],
+                ans: 1,
+                tag: "適應環境"
+            },
+            {
+                q: "蓮（荷花）的葉柄與莖內部具有「中空管道」，其作用為？",
+                options: ["儲存過多的水分", "輸送空氣進行氣體交換", "增加莖幹硬度", "儲存葉綠素"],
+                ans: 1,
+                tag: "特殊管道"
+            },
+            {
+                q: "「葉片平貼在水面上，根部長在水底泥土裡」是哪一類水生植物？",
+                options: ["漂浮性植物", "沉水性植物", "浮葉性植物", "挺水性植物"],
+                ans: 2,
+                tag: "分類特徵"
+            },
+            {
+                q: "大萍（水芙蓉）的根部生長狀況為何？",
+                options: ["深深扎入水底泥土", "纏繞在石頭上", "漂浮在水中不接觸泥土", "生長在陸地乾燥處"],
+                ans: 2,
+                tag: "根部觀察"
+            },
+            {
+                q: "下列哪一種水生植物屬於「挺水性植物」？",
+                options: ["布袋蓮", "水蘊草", "睡蓮", "蓮（荷花）"],
+                ans: 3,
+                tag: "植物歸類"
+            },
+            {
+                q: "睡蓮的葉柄質地柔軟，會隨水位高低彎曲，這是為了讓葉片能？",
+                options: ["挺出水面高處", "持續平貼於水面", "沉入水底躲避風浪", "脫離植物體漂走"],
+                ans: 1,
+                tag: "葉片適應"
+            },
+            {
+                q: "下列關於「沉水性植物」的敘述，何者正確？",
+                options: ["葉片平貼水面", "莖葉挺出水面", "全株完全生長在水中", "根部不接觸泥土"],
+                ans: 2,
+                tag: "觀念辨析"
+            },
+            {
+                q: "布袋蓮和大萍都屬於「漂浮性植物」，它們主要依靠什麼漂浮？",
+                options: ["發達的通氣組織", "堅硬的木質莖", "巨大的花朵浮力", "長長的根部推力"],
+                ans: 0,
+                tag: "漂浮祕密"
+            },
+            {
+                q: "通常生長在水位較淺處，莖與葉會直立伸出水面的水生植物類型是？",
+                options: ["挺水性植物", "浮葉性植物", "沉水性植物", "漂浮性植物"],
+                ans: 0,
+                tag: "分類特徵"
+            }
+        ];
+
+        /* GAME STATE VARIABLES */
+        let shuffledQuestions = [];
+        let currentQIndex = 0;
+        let p1Score = 0;
+        let p2Score = 0;
+        
+        // Round State: 'WAIT_BUZZ' | 'BUZZED' | 'STEAL_BUZZ' | 'LOCKED'
+        let roundState = 'WAIT_BUZZ';
+        let activePlayer = null; // 'p1' or 'p2'
+        let buzzerTimer = null;
+        let timeLeft = 5;
+
+        // Shuffle helper
+        function shuffle(arr) {
+            return [...arr].sort(() => Math.random() - 0.5);
+        }
+
+        /* START / RESTART GAME */
+        function startGame() {
+            initAudio();
+            shuffledQuestions = shuffle(QUESTION_DATABASE);
+            currentQIndex = 0;
+            p1Score = 0;
+            p2Score = 0;
+
+            document.getElementById('p1-score').innerText = '0';
+            document.getElementById('p2-score').innerText = '0';
+            document.getElementById('q-total').innerText = shuffledQuestions.length;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            loadQuestion();
+        }
+
+        /* LOAD CURRENT QUESTION */
+        function loadQuestion() {
+            clearInterval(buzzerTimer);
+            roundState = 'WAIT_BUZZ';
+            activePlayer = null;
+
+            const q = shuffledQuestions[currentQIndex];
+            document.getElementById('q-index').innerText = currentQIndex + 1;
+            document.getElementById('q-category-tag').innerText = q.tag;
+            document.getElementById('question-text').innerText = q.q;
+
+            // Reset UI states
+            updateTimerBadge('搶答中', 'bg-slate-900 text-amber-400 border-amber-500/50');
+            updateBanner('⚡ 請按下兩側按鈕搶答！', 'bg-cyan-500 text-slate-950');
+
+            resetBuzzButtons();
+            renderOptions(q.options, false); // Render options disabled initially
+        }
+
+        /* RENDER OPTIONS BUTTONS */
+        function renderOptions(options, enabled = false) {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `w-full p-3.5 md:p-4 rounded-2xl font-bold text-sm md:text-base border-2 transition-all flex items-center justify-between text-left
+                    ${enabled 
+                        ? 'bg-slate-700/90 hover:bg-slate-600 border-cyan-400 text-white cursor-pointer active:scale-98 shadow-md' 
+                        : 'bg-slate-800/50 border-slate-700 text-slate-500 cursor-not-allowed opacity-60'}`;
+                
+                btn.disabled = !enabled;
+                btn.onclick = () => handleAnswerSelect(idx);
+
+                btn.innerHTML = `
+                    <span>${optText}</span>
+                    <span class="w-6 h-6 rounded-full bg-slate-900/60 text-xs flex items-center justify-center border border-slate-600 font-mono">${String.fromCharCode(65 + idx)}</span>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        /* HANDLE BUZZ IN (Touch / Mouse) */
+        function handleBuzz(player, event) {
+            if (event) event.preventDefault(); // Prevent double-triggering on touch
+            
+            if (roundState !== 'WAIT_BUZZ' && roundState !== 'STEAL_BUZZ') return;
+            if (roundState === 'STEAL_BUZZ' && activePlayer === player) return; // Can't buzz again if you failed
+
+            playSound('buzz');
+            roundState = 'BUZZED';
+            activePlayer = player;
+
+            // Highlight Buzzed Player & Dim Other
+            const p1Btn = document.getElementById('p1-buzz-btn');
+            const p2Btn = document.getElementById('p2-buzz-btn');
+
+            if (player === 'p1') {
+                p1Btn.classList.add('buzz-p1-active');
+                p2Btn.classList.add('opacity-30', 'pointer-events-none');
+                updateBanner('🔥 P1 藍隊 搶答成功！請在 5 秒內選答', 'bg-cyan-500 text-slate-950');
+            } else {
+                p2Btn.classList.add('buzz-p2-active');
+                p1Btn.classList.add('opacity-30', 'pointer-events-none');
+                updateBanner('🔥 P2 紅隊 搶答成功！請在 5 秒內選答', 'bg-rose-500 text-slate-950');
+            }
+
+            // Enable options for answering
+            const q = shuffledQuestions[currentQIndex];
+            renderOptions(q.options, true);
+
+            // Start 5-second countdown
+            startAnswerCountdown();
+        }
+
+        /* 5-SECOND ANSWER COUNTDOWN */
+        function startAnswerCountdown() {
+            timeLeft = 5;
+            updateTimerBadge(`${timeLeft}s`, 'bg-amber-500 text-slate-950 border-amber-300 font-black animate-pulse');
+
+            clearInterval(buzzerTimer);
+            buzzerTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    playSound('tick');
+                    updateTimerBadge(`${timeLeft}s`, 'bg-amber-500 text-slate-950 border-amber-300 font-black animate-pulse');
+                } else {
+                    // Timeout -> Treatment as Wrong Answer
+                    clearInterval(buzzerTimer);
+                    handleAnswerSelect(-1); // -1 = Timeout
+                }
+            }, 1000);
+        }
+
+        /* HANDLE ANSWER SELECTION */
+        function handleAnswerSelect(selectedIdx) {
+            clearInterval(buzzerTimer);
+            const q = shuffledQuestions[currentQIndex];
+            const isCorrect = (selectedIdx === q.ans);
+
+            const optionsContainer = document.getElementById('options-container');
+            const buttons = optionsContainer.children;
+
+            // Lock options
+            for (let btn of buttons) {
+                btn.disabled = true;
+            }
+
+            if (isCorrect) {
+                // --- CORRECT ANSWER ---
+                playSound('correct');
+                if (buttons[selectedIdx]) {
+                    buttons[selectedIdx].className = 'w-full p-3.5 md:p-4 rounded-2xl font-bold text-sm md:text-base border-2 bg-emerald-600 border-emerald-300 text-white flex items-center justify-between text-left shadow-lg';
+                }
+
+                if (activePlayer === 'p1') {
+                    p1Score += 10;
+                    document.getElementById('p1-score').innerText = p1Score;
+                    updateBanner('🎉 P1 藍隊 答對了！ (+10 分)', 'bg-emerald-500 text-slate-950');
+                } else {
+                    p2Score += 10;
+                    document.getElementById('p2-score').innerText = p2Score;
+                    updateBanner('🎉 P2 紅隊 答對了！ (+10 分)', 'bg-emerald-500 text-slate-950');
+                }
+
+                // Proceed to Next Question
+                setTimeout(() => {
+                    currentQIndex++;
+                    if (currentQIndex < shuffledQuestions.length) {
+                        loadQuestion();
+                    } else {
+                        endGame();
+                    }
+                }, 1500);
+
+            } else {
+                // --- WRONG ANSWER / TIMEOUT ---
+                playSound('wrong');
+                document.getElementById('arena-card').classList.add('shake-effect');
+                setTimeout(() => document.getElementById('arena-card').classList.remove('shake-effect'), 400);
+
+                if (selectedIdx >= 0 && buttons[selectedIdx]) {
+                    buttons[selectedIdx].className = 'w-full p-3.5 md:p-4 rounded-2xl font-bold text-sm md:text-base border-2 bg-rose-600 border-rose-300 text-white flex items-center justify-between text-left';
+                }
+
+                // Deduct 5 points
+                if (activePlayer === 'p1') {
+                    p1Score = Math.max(0, p1Score - 5);
+                    document.getElementById('p1-score').innerText = p1Score;
+                } else {
+                    p2Score = Math.max(0, p2Score - 5);
+                    document.getElementById('p2-score').innerText = p2Score;
+                }
+
+                // Check for Steal Opportunity
+                if (roundState !== 'STEAL_BUZZ') {
+                    // Turnover to Opponent for Steal!
+                    roundState = 'STEAL_BUZZ';
+                    const failedPlayer = activePlayer;
+                    const stealPlayer = (failedPlayer === 'p1') ? 'P2 紅隊' : 'P1 藍隊';
+
+                    updateBanner(`❌ 答錯扣 5 分！換 ${stealPlayer} 偷答搶答！`, 'bg-amber-500 text-slate-950');
+                    updateTimerBadge('偷答時間', 'bg-slate-900 text-amber-400 border-amber-500/50');
+
+                    // Reset buttons allowing opponent to buzz
+                    setTimeout(() => {
+                        resetBuzzButtons();
+                        if (failedPlayer === 'p1') {
+                            document.getElementById('p1-buzz-btn').classList.add('opacity-30', 'pointer-events-none');
+                        } else {
+                            document.getElementById('p2-buzz-btn').classList.add('opacity-30', 'pointer-events-none');
+                        }
+                    }, 1000);
+
+                } else {
+                    // Both players failed -> Show correct answer & move on
+                    updateBanner(`❌ 雙方皆答錯！正確答案是：${q.options[q.ans]}`, 'bg-slate-700 text-rose-300');
+                    if (buttons[q.ans]) {
+                        buttons[q.ans].className = 'w-full p-3.5 md:p-4 rounded-2xl font-bold text-sm md:text-base border-2 bg-emerald-600 border-emerald-300 text-white flex items-center justify-between text-left';
+                    }
+
+                    setTimeout(() => {
+                        currentQIndex++;
+                        if (currentQIndex < shuffledQuestions.length) {
+                            loadQuestion();
+                        } else {
+                            endGame();
+                        }
+                    }, 2000);
+                }
+            }
+        }
+
+        /* UI HELPER FUNCTIONS */
+        function resetBuzzButtons() {
+            const p1Btn = document.getElementById('p1-buzz-btn');
+            const p2Btn = document.getElementById('p2-buzz-btn');
+
+            p1Btn.className = "w-full h-full bg-gradient-to-b from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 active:scale-95 text-white font-black text-2xl md:text-4xl rounded-3xl border-4 border-cyan-300 shadow-2xl flex flex-col items-center justify-center gap-3 transition duration-150";
+            p2Btn.className = "w-full h-full bg-gradient-to-b from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 active:scale-95 text-white font-black text-2xl md:text-4xl rounded-3xl border-4 border-rose-300 shadow-2xl flex flex-col items-center justify-center gap-3 transition duration-150";
+        }
+
+        function updateBanner(text, bgClass) {
+            const banner = document.getElementById('status-banner');
+            banner.className = `${bgClass} text-center font-black py-1.5 px-3 rounded-xl text-sm md:text-base mb-2 shadow-md transition-all`;
+            banner.innerText = text;
+        }
+
+        function updateTimerBadge(text, bgClass) {
+            const badge = document.getElementById('timer-badge');
+            badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-base font-black ${bgClass}`;
+            document.getElementById('timer-sec').innerText = text;
+        }
+
+        /* GAME OVER */
+        function endGame() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            document.getElementById('final-p1-score').innerText = p1Score;
+            document.getElementById('final-p2-score').innerText = p2Score;
+
+            const titleEl = document.getElementById('winner-title');
+            const emojiEl = document.getElementById('winner-emoji');
+
+            if (p1Score > p2Score) {
+                titleEl.className = "text-3xl md:text-4xl font-black text-cyan-400 mb-1";
+                titleEl.innerText = "🏆 P1 藍隊 獲勝！";
+                emojiEl.innerText = "🎉";
+            } else if (p2Score > p1Score) {
+                titleEl.className = "text-3xl md:text-4xl font-black text-rose-400 mb-1";
+                titleEl.innerText = "🏆 P2 紅隊 獲勝！";
+                emojiEl.innerText = "🎉";
+            } else {
+                titleEl.className = "text-3xl md:text-4xl font-black text-amber-400 mb-1";
+                titleEl.innerText = "🤝 旗鼓相當 平手！";
+                emojiEl.innerText = "⚖️";
+            }
+
+            // Trigger Confetti Animation
+            createConfetti();
+        }
+
+        /* CONFETTI ANIMATION */
+        function createConfetti() {
+            const container = document.getElementById('confetti-container');
+            container.innerHTML = '';
+            const colors = ['#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6'];
+
+            for (let i = 0; i < 35; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = `${Math.random() * 100}%`;
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animationDelay = `${Math.random() * 2}s`;
+                conf.style.animationDuration = `${Math.random() * 2 + 2}s`;
+                container.appendChild(conf);
+            }
+        }
+    </script>
+</body>
+</html>
