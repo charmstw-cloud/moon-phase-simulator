@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>第一關：生活酸鹼大分籠</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Bungee -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti 慶祝特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 門特效動畫 */
+        @keyframes pulse-glow-acid {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), inset 0 0 15px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.9), inset 0 0 25px rgba(239, 68, 68, 0.7); }
+        }
+
+        @keyframes pulse-glow-alkaline {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6), inset 0 0 15px rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 35px rgba(59, 130, 246, 0.9), inset 0 0 25px rgba(59, 130, 246, 0.7); }
+        }
+
+        .portal-acid {
+            animation: pulse-glow-acid 2s infinite ease-in-out;
+        }
+
+        .portal-alkaline {
+            animation: pulse-glow-alkaline 2s infinite ease-in-out;
+        }
+
+        /* 旋轉黑洞背景效果 */
+        .portal-swirl {
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.4) 70%);
+            animation: spin 10s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 卡片被拖曳時的樣式 */
+        .dragging {
+            opacity: 0.8;
+            scale: 1.05;
+            z-index: 50;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* 吸入門的縮放消失動畫 */
+        @keyframes absorb {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: scale(0.1) rotate(360deg); opacity: 0; }
+        }
+
+        .absorbing {
+            animation: absorb 0.4s ease-in forwards;
+        }
+
+        /* 錯誤震動動畫 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen overflow-hidden flex flex-col justify-between select-none">
+
+    <!-- 頂部資訊欄 -->
+    <header class="w-full bg-slate-800/80 backdrop-blur border-b border-slate-700 px-4 py-3 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600 text-white p-2 rounded-xl text-xl">
+                <i class="fa-solid fa-flask-vial"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg md:text-xl text-amber-400">第一關：生活酸鹼大分籠</h1>
+                <p class="text-xs text-slate-400 hidden sm:block">拖曳物品卡片至正確的酸鹼傳送門！</p>
+            </div>
+        </div>
+
+        <!-- 計時器與分數 -->
+        <div class="flex items-center gap-4">
+            <div class="bg-slate-700/80 px-4 py-1.5 rounded-full border border-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-clock text-amber-400"></i>
+                <span id="timer-text" class="font-mono text-xl font-bold text-amber-400">45</span><span class="text-xs text-slate-300">s</span>
+            </div>
+            <div class="bg-slate-700/80 px-4 py-1.5 rounded-full border border-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-trophy text-yellow-400"></i>
+                <span id="score-text" class="font-mono text-xl font-bold text-yellow-400">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主遊戲區域 -->
+    <main class="relative flex-1 flex flex-col justify-between items-center p-4 max-w-5xl mx-auto w-full">
+
+        <!-- 頂部卡片出現區 (掉落與暫存區) -->
+        <section id="card-spawn-area" class="w-full flex justify-center items-center min-h-[160px] my-2 relative">
+            <!-- 提示引導浮字 -->
+            <div id="drag-hint" class="absolute -bottom-2 text-xs text-slate-400 animate-bounce pointer-events-none">
+                <i class="fa-solid fa-hand-pointer mr-1"></i> 拖曳或點擊卡片分類
+            </div>
+        </section>
+
+        <!-- 中間連擊與提示回饋訊息 -->
+        <div id="feedback-message" class="h-8 text-center text-lg font-bold transition-all duration-300 opacity-0 pointer-events-none">
+            <span id="feedback-text" class="px-4 py-1 rounded-full bg-slate-800 border border-slate-600">連擊獎勵 +50!</span>
+        </div>
+
+        <!-- 底部兩大傳送門區域 -->
+        <section class="w-full grid grid-cols-2 gap-4 md:gap-8 my-2">
+            <!-- 酸性傳送門 -->
+            <div id="portal-acid" 
+                 class="portal-acid bg-gradient-to-b from-red-950/80 to-red-900/40 border-4 border-red-500 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[220px] md:min-h-[260px] relative overflow-hidden transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer">
+                <div class="portal-swirl absolute inset-0 opacity-30 pointer-events-none"></div>
+                <div class="z-10 text-center pointer-events-none">
+                    <div class="w-16 h-16 md:w-20 md:h-20 bg-red-600/30 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-400/50">
+                        <i class="fa-solid fa-lemon text-3xl md:text-4xl text-red-400"></i>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black text-red-400 tracking-wider">酸性傳送門</h2>
+                    <p class="text-xs md:text-sm text-red-200/70 mt-1">pH < 7 (檸檬酸、醋等)</p>
+                </div>
+                <div class="absolute bottom-2 text-xs text-red-400/50 font-mono">PORTAL A-01</div>
+            </div>
+
+            <!-- 鹼性傳送門 -->
+            <div id="portal-alkaline" 
+                 class="portal-alkaline bg-gradient-to-b from-blue-950/80 to-indigo-900/40 border-4 border-blue-500 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[220px] md:min-h-[260px] relative overflow-hidden transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer">
+                <div class="portal-swirl absolute inset-0 opacity-30 pointer-events-none"></div>
+                <div class="z-10 text-center pointer-events-none">
+                    <div class="w-16 h-16 md:w-20 md:h-20 bg-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-2 border border-blue-400/50">
+                        <i class="fa-solid fa-bubbles text-3xl md:text-4xl text-blue-400"></i>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black text-blue-400 tracking-wider">鹼性傳送門</h2>
+                    <p class="text-xs md:text-sm text-blue-200/70 mt-1">pH > 7 (小蘇打、肥皂等)</p>
+                </div>
+                <div class="absolute bottom-2 text-xs text-blue-400/50 font-mono">PORTAL B-02</div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 頁尾說明 -->
+    <footer class="text-center py-2 text-xs text-slate-500 border-t border-slate-800">
+        自然科學實驗室 · 酸鹼性質與生活應用關卡
+    </footer>
+
+    <!-- ==================== 彈窗 1：未知溶液安全護盾警告 ==================== -->
+    <div id="safety-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border-2 border-amber-500 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl relative animate-bounce-in">
+            <!-- 護盾圖示 -->
+            <div class="w-20 h-20 bg-amber-500/20 border-2 border-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-400 text-4xl animate-pulse">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            
+            <h3 class="text-2xl font-black text-amber-400 mb-2">⚠️ 安全防護警報！</h3>
+            
+            <div class="bg-amber-950/40 border border-amber-800/60 rounded-2xl p-4 my-4 text-left">
+                <p class="text-amber-200 font-bold text-sm mb-1">【實驗室黃金守則】</p>
+                <p class="text-slate-300 text-sm leading-relaxed">
+                    觀察未知溶液前，必須先確認安全性，<span class="text-amber-400 font-bold">絕對不可隨意品嚐、觸摸或直接嗅聞！</span>
+                </p>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-6">請回想：要如何安全地確定未知溶液的酸鹼性？</p>
+
+            <button id="close-safety-btn" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-900 font-black py-3 rounded-xl shadow-lg transition-transform active:scale-95 text-lg">
+                我明白了！使用試紙檢測 (繼續遊戲)
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 彈窗 2：遊戲開始/說明彈窗 ==================== -->
+    <div id="start-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-indigo-500 rounded-3xl max-w-lg w-full p-6 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-indigo-600/30 border border-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400 text-4xl">
+                <i class="fa-solid fa-vial-circle-check"></i>
+            </div>
+            <h2 class="text-3xl font-black text-white mb-2">生活酸鹼大分籠</h2>
+            <p class="text-slate-300 text-sm mb-6">你能分辨日常生活物品是酸性還是鹼性嗎？</p>
+
+            <div class="bg-slate-900/60 rounded-2xl p-4 text-left text-xs sm:text-sm text-slate-300 space-y-2 mb-6 border border-slate-700">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-hand-pointer text-amber-400"></i>
+                    <span>將畫面上方的物品卡片拖曳至正確的傳送門。</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-bolt text-yellow-400"></i>
+                    <span>連續答對可獲得更高的 Combo 加分！</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
+                    <span>小心！遇到未知溶液時請特別注意實驗安全。</span>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg text-lg transition-transform active:scale-95">
+                開始挑戰
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 彈窗 3：遊戲結算彈窗 ==================== -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border-2 border-amber-500 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl">
+            <div id="result-icon" class="text-6xl mb-2">🏆</div>
+            <h2 id="result-title" class="text-3xl font-black text-amber-400 mb-1">挑戰完成！</h2>
+            <p id="result-subtitle" class="text-slate-300 text-sm mb-4">你真是個酸鹼大師！</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 mb-6 border border-slate-700">
+                <div class="flex justify-between items-center py-2 border-b border-slate-800">
+                    <span class="text-slate-400">最終得分</span>
+                    <span id="final-score" class="text-2xl font-black text-yellow-400">0</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-slate-800">
+                    <span class="text-slate-400">正確分類</span>
+                    <span id="final-correct" class="text-lg font-bold text-emerald-400">0 項</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-slate-400">實驗安全守則</span>
+                    <span id="final-safety" class="text-lg font-bold text-sky-400">完美遵守 ✨</span>
+                </div>
+            </div>
+
+            <button id="restart-game-btn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg text-lg transition-transform active:scale-95">
+                再玩一次
+            </button>
+        </div>
+    </div>
+
+    <!-- 音效庫 (Web Audio API 合成音效) -->
+    <script>
+        // Web Audio API 音效生成器 (無須外部音效檔)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.2); // A5
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now); // A3
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.3); // A2
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'warning') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.setValueAtTime(880, now + 0.1);
+                    osc.frequency.setValueAtTime(440, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                }
+            } catch (e) {
+                console.log("Audio error:", e);
+            }
+        }
+    </script>
+
+    <!-- 遊戲主邏輯 -->
+    <script>
+        // 物品數據庫
+        const ITEM_DATABASE = [
+            // 酸性物品
+            { id: 'vinegar', name: '食醋', type: 'acid', icon: 'fa-bottle-droplet', color: 'text-amber-500', desc: '含醋酸，呈酸性' },
+            { id: 'lemon_juice', name: '檸檬汁', type: 'acid', icon: 'fa-lemon', color: 'text-yellow-400', desc: '含檸檬酸，呈酸性' },
+            { id: 'yogurt_drink', name: '乳酸飲料', type: 'acid', icon: 'fa-whiskey-glass', color: 'text-orange-300', desc: '含乳酸，呈酸性' },
+            { id: 'sports_drink', name: '運動飲料', type: 'acid', icon: 'fa-bottle-water', color: 'text-cyan-400', desc: '電解質與有機酸，呈弱酸性' },
+            { id: 'citric_acid', name: '檸檬酸晶體', type: 'acid', icon: 'fa-cubes', color: 'text-yellow-200', desc: '常用於清潔，呈酸性' },
+            
+            // 鹼性物品
+            { id: 'baking_soda', name: '小蘇打水', type: 'alkaline', icon: 'fa-box-tissue', color: 'text-teal-300', desc: '碳酸氫鈉，呈弱鹼性' },
+            { id: 'soap_water', name: '肥皂水', type: 'alkaline', icon: 'fa-pump-soap', color: 'text-pink-300', desc: '脂肪酸鈉，呈鹼性' },
+            { id: 'alkaline_zongzi', name: '鹼粽', type: 'alkaline', icon: 'fa-cookie', color: 'text-amber-600', desc: '製作時加入鹼水，呈鹼性' },
+            { id: 'lime_water', name: '灰鹼水/石灰水', type: 'alkaline', icon: 'fa-jar', color: 'text-slate-300', desc: '氫氧化鈣溶液，呈鹼性' },
+            
+            // 特殊卡片：未知溶液 (觸發安全警報)
+            { id: 'unknown_1', name: '神秘無色溶液', type: 'danger', icon: 'fa-flask-vial', color: 'text-purple-400', desc: '⚠️ 未知液體！不可以隨意食用或摸摸！' },
+            { id: 'unknown_2', name: '標籤脫落的試劑', type: 'danger', icon: 'fa-triangle-exclamation', color: 'text-amber-400', desc: '⚠️ 標籤不明！需要確認安全性！' }
+        ];
+
+        // 遊戲狀態變數
+        let currentQueue = [];
+        let currentCardData = null;
+        let score = 0;
+        let combo = 0;
+        let correctCount = 0;
+        let timeLeft = 45;
+        let gameTimer = null;
+        let isGameActive = false;
+
+        // DOM 元素引用
+        const cardSpawnArea = document.getElementById('card-spawn-area');
+        const portalAcid = document.getElementById('portal-acid');
+        const portalAlkaline = document.getElementById('portal-alkaline');
+        const scoreText = document.getElementById('score-text');
+        const timerText = document.getElementById('timer-text');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const feedbackText = document.getElementById('feedback-text');
+
+        const safetyModal = document.getElementById('safety-modal');
+        const closeSafetyBtn = document.getElementById('close-safety-btn');
+        const startModal = document.getElementById('start-modal');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const restartGameBtn = document.getElementById('restart-game-btn');
+
+        // 初始化遊戲
+        function initGame() {
+            score = 0;
+            combo = 0;
+            correctCount = 0;
+            timeLeft = 45;
+            scoreText.textContent = score;
+            timerText.textContent = timeLeft;
+
+            // 打亂物品順序並複製兩份增加遊戲長度
+            currentQueue = [...ITEM_DATABASE, ...ITEM_DATABASE]
+                .sort(() => Math.random() - 0.5);
+
+            startModal.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+            safetyModal.classList.add('hidden');
+
+            isGameActive = true;
+            spawnNextCard();
+            startTimer();
+        }
+
+        // 開始計時器
+        function startTimer() {
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                if (!isGameActive) return;
+                timeLeft--;
+                timerText.textContent = timeLeft;
+
+                if (timeLeft <= 10) {
+                    timerText.classList.add('text-red-500', 'animate-ping');
+                } else {
+                    timerText.classList.remove('text-red-500', 'animate-ping');
+                }
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // 生成下一張卡片
+        function spawnNextCard() {
+            cardSpawnArea.innerHTML = '';
+
+            if (currentQueue.length === 0 || timeLeft <= 0) {
+                endGame();
+                return;
+            }
+
+            currentCardData = currentQueue.shift();
+
+            // 創建卡片 DOM 元素
+            const card = document.createElement('div');
+            card.id = 'active-card';
+            card.className = `w-44 h-36 bg-slate-800 border-2 ${currentCardData.type === 'danger' ? 'border-amber-400' : 'border-indigo-400/80'} rounded-2xl p-3 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing shadow-xl transition-transform hover:scale-105 select-none relative z-20`;
+            
+            card.innerHTML = `
+                <div class="text-4xl mb-2 ${currentCardData.color}">
+                    <i class="fa-solid ${currentCardData.icon}"></i>
+                </div>
+                <div class="font-bold text-base text-white text-center">${currentCardData.name}</div>
+                <div class="text-[10px] text-slate-400 text-center mt-1">${currentCardData.type === 'danger' ? '點擊試圖辨識？' : '請拖曳至傳送門'}</div>
+            `;
+
+            // 綁定觸控與拖曳事件
+            bindDragEvents(card);
+            
+            // 點擊未知溶液直接觸發警報
+            card.addEventListener('click', () => {
+                if (currentCardData.type === 'danger') {
+                    triggerSafetyAlert();
+                }
+            });
+
+            cardSpawnArea.appendChild(card);
+        }
+
+        // 綁定卡片拖曳邏輯 (支援 Mouse & Touch)
+        function bindDragEvents(card) {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+
+            function onStart(e) {
+                initAudio();
+                if (!isGameActive) return;
+
+                // 未知溶液若被點擊或嘗試拖曳，觸發警告
+                if (currentCardData.type === 'danger') {
+                    triggerSafetyAlert();
+                    return;
+                }
+
+                isDragging = true;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                startX = clientX;
+                startY = clientY;
+                
+                const rect = card.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+
+                card.classList.add('dragging');
+                card.style.position = 'fixed';
+                card.style.left = `${rect.left}px`;
+                card.style.top = `${rect.top}px`;
+                card.style.width = `${rect.width}px`;
+            }
+
+            function onMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                const deltaX = clientX - startX;
+                const deltaY = clientY - startY;
+
+                card.style.left = `${initialX + deltaX}px`;
+                card.style.top = `${initialY + deltaY}px`;
+            }
+
+            function onEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                card.classList.remove('dragging');
+
+                const cardRect = card.getBoundingClientRect();
+                const acidRect = portalAcid.getBoundingClientRect();
+                const alkalineRect = portalAlkaline.getBoundingClientRect();
+
+                // 判斷是否落入酸性傳送門
+                if (isOverlapping(cardRect, acidRect)) {
+                    handleClassification('acid');
+                } 
+                // 判斷是否落入鹼性傳送門
+                else if (isOverlapping(cardRect, alkalineRect)) {
+                    handleClassification('alkaline');
+                } 
+                // 未歸類，歸位
+                else {
+                    card.style.position = 'relative';
+                    card.style.left = '0px';
+                    card.style.top = '0px';
+                }
+            }
+
+            card.addEventListener('mousedown', onStart);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+
+            card.addEventListener('touchstart', onStart, { passive: false });
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('touchend', onEnd);
+        }
+
+        // 重疊碰觸判定
+        function isOverlapping(rect1, rect2) {
+            return !(
+                rect1.right < rect2.left ||
+                rect1.left > rect2.right ||
+                rect1.bottom < rect2.top ||
+                rect1.top > rect2.bottom
+            );
+        }
+
+        // 處理解答分類
+        function handleClassification(targetType) {
+            const activeCard = document.getElementById('active-card');
+
+            if (currentCardData.type === targetType) {
+                // 答對
+                playSound('correct');
+                combo++;
+                correctCount++;
+                const pointGained = 100 + (combo > 1 ? (combo - 1) * 20 : 0);
+                score += pointGained;
+                scoreText.textContent = score;
+
+                showFeedback(`正確！+${pointGained} ${combo > 1 ? `(${combo} Combo!)` : ''}`, 'text-emerald-400');
+
+                if (activeCard) {
+                    activeCard.classList.add('absorbing');
+                }
+
+                setTimeout(() => {
+                    spawnNextCard();
+                }, 300);
+
+            } else {
+                // 答錯
+                playSound('wrong');
+                combo = 0;
+                showFeedback(`答錯囉！ ${currentCardData.name} 是${currentCardData.type === 'acid' ? '酸性' : '鹼性'}`, 'text-red-400');
+
+                if (activeCard) {
+                    activeCard.classList.add('shake');
+                    setTimeout(() => {
+                        activeCard.classList.remove('shake');
+                        activeCard.style.position = 'relative';
+                        activeCard.style.left = '0px';
+                        activeCard.style.top = '0px';
+                    }, 400);
+                }
+            }
+        }
+
+        // 觸發安全護盾彈窗
+        function triggerSafetyAlert() {
+            playSound('warning');
+            isGameActive = false; // 暫停遊戲
+            safetyModal.classList.remove('hidden');
+        }
+
+        // 關閉安全護盾並給予安全獎勵分數
+        closeSafetyBtn.addEventListener('click', () => {
+            safetyModal.classList.add('hidden');
+            isGameActive = true;
+
+            // 遵守安全規範獲得獎勵分
+            score += 150;
+            scoreText.textContent = score;
+            showFeedback('🛡️ 遵守實驗安全規範！加 150 分', 'text-amber-300');
+
+            // 移除該張危險卡片並更換
+            spawnNextCard();
+        });
+
+        // 顯示回饋文字
+        function showFeedback(msg, textColorClass) {
+            feedbackText.textContent = msg;
+            feedbackMessage.className = `h-8 text-center text-lg font-bold transition-all duration-300 opacity-100 ${textColorClass}`;
+            
+            setTimeout(() => {
+                feedbackMessage.classList.add('opacity-0');
+            }, 1200);
+        }
+
+        // 結束遊戲
+        function endGame() {
+            isGameActive = false;
+            clearInterval(gameTimer);
+
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-correct').textContent = `${correctCount} 項`;
+
+            if (score >= 1000) {
+                document.getElementById('result-icon').textContent = '🥇';
+                document.getElementById('result-title').textContent = '酸鹼大師！';
+                document.getElementById('result-subtitle').textContent = '太厲害了，對生活中的酸鹼物質瞭如指掌！';
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            } else if (score >= 600) {
+                document.getElementById('result-icon').textContent = '🥈';
+                document.getElementById('result-title').textContent = '小小科學家！';
+                document.getElementById('result-subtitle').textContent = '表現非常優秀，繼續保持！';
+            } else {
+                document.getElementById('result-icon').textContent = '🥉';
+                document.getElementById('result-title').textContent = '繼續加油！';
+                document.getElementById('result-subtitle').textContent = '多觀察身邊的化學物質，再試一次吧！';
+            }
+
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 點擊傳送門快選支援 (點擊傳送門直接嘗試歸類目前卡片)
+        portalAcid.addEventListener('click', () => {
+            if (isGameActive && currentCardData) {
+                if (currentCardData.type === 'danger') {
+                    triggerSafetyAlert();
+                } else {
+                    handleClassification('acid');
+                }
+            }
+        });
+
+        portalAlkaline.addEventListener('click', () => {
+            if (isGameActive && currentCardData) {
+                if (currentCardData.type === 'danger') {
+                    triggerSafetyAlert();
+                } else {
+                    handleClassification('alkaline');
+                }
+            }
+        });
+
+        // 按鈕事件監聽
+        startGameBtn.addEventListener('click', () => {
+            initAudio();
+            initGame();
+        });
+
+        restartGameBtn.addEventListener('click', () => {
+            initGame();
+        });
+    </script>
+</body>
+</html>

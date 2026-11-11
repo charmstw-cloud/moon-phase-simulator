@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>pH Cabbage Juice Magician - 高麗菜汁變色魔術師</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti 慶祝特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 試管液體混合與擴散動畫 */
+        @keyframes liquidFill {
+            0% { height: 35%; background-color: rgba(226, 232, 240, 0.4); }
+            50% { height: 65%; background-color: var(--target-color); opacity: 0.8; filter: blur(2px); }
+            100% { height: 65%; background-color: var(--target-color); filter: blur(0px); }
+        }
+
+        .liquid-react {
+            animation: liquidFill 1.2s ease-out forwards;
+        }
+
+        /* 滴管液滴掉落動畫 */
+        @keyframes dropFall {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            80% { transform: translateY(120px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(140px) scale(0.2); opacity: 0; }
+        }
+
+        .drop-anim {
+            animation: dropFall 0.5s ease-in forwards;
+        }
+
+        /* 微光的玻璃質感 */
+        .glass-tube {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(8px);
+            box-shadow: inset -2px -2px 6px rgba(255,255,255,0.2), inset 2px 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .dropper-hover {
+            filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.8));
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
+
+    <!-- 頂部標題與狀態資訊欄 -->
+    <header class="w-full bg-slate-800/90 backdrop-blur border-b border-slate-700 px-4 py-3 flex justify-between items-center z-10 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="bg-purple-600 text-white p-2.5 rounded-2xl text-xl shadow-lg shadow-purple-900/50">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-lg md:text-xl text-purple-300">pH Cabbage Juice Magician</h1>
+                <p class="text-xs text-slate-400">第二關：紫色高麗菜汁虛擬滴定實驗</p>
+            </div>
+        </div>
+
+        <!-- 關卡進度與總分 -->
+        <div class="flex items-center gap-3 md:gap-6">
+            <div class="bg-slate-700/80 px-3.5 py-1.5 rounded-full border border-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-vial text-purple-400"></i>
+                <span class="text-xs text-slate-300">實驗進度:</span>
+                <span id="progress-text" class="font-mono text-base font-bold text-purple-300">0 / 4</span>
+            </div>
+            <div class="bg-slate-700/80 px-3.5 py-1.5 rounded-full border border-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-400"></i>
+                <span id="score-text" class="font-mono text-base font-bold text-amber-400">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主實驗檯區域 -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-6 justify-between items-stretch">
+
+        <!-- 左側：實驗操作區 (滴管與試管架) -->
+        <section class="flex-1 bg-slate-800/50 border border-slate-700/80 rounded-3xl p-5 flex flex-col justify-between relative min-h-[420px] shadow-2xl">
+            <!-- 頂部提示 -->
+            <div class="flex justify-between items-center bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700">
+                <div class="flex items-center gap-2 text-purple-300 text-sm font-bold">
+                    <i class="fa-solid fa-eye"></i> 步驟 1：點擊滴管吸取高麗菜汁，滴入試管觀察變色
+                </div>
+                <button id="reset-experiment-btn" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-300 transition">
+                    <i class="fa-solid fa-rotate-right mr-1"></i>重新調配
+                </button>
+            </div>
+
+            <!-- 紫色高麗菜汁指示劑燒杯與滴管 -->
+            <div class="flex justify-center items-center my-4 relative">
+                <!-- 高麗菜汁燒杯 -->
+                <div class="flex items-center gap-4 bg-slate-900/60 p-3 rounded-2xl border border-purple-500/30">
+                    <div class="w-16 h-20 bg-purple-900/40 border-2 border-purple-400/50 rounded-b-2xl rounded-t-sm relative overflow-hidden flex items-end justify-center">
+                        <div class="w-full h-3/4 bg-purple-600/80 rounded-b-xl shadow-inner animate-pulse"></div>
+                        <span class="absolute text-[10px] text-purple-200 font-bold top-2">紫色高麗菜汁</span>
+                    </div>
+
+                    <!-- 可互動滴管 -->
+                    <div id="interactive-dropper" 
+                         class="cursor-pointer transition-all duration-300 hover:scale-110 active:scale-95 flex flex-col items-center group relative z-20">
+                        <div class="w-8 h-8 bg-purple-500 rounded-t-full border-2 border-purple-300 shadow-lg group-hover:bg-purple-400"></div>
+                        <div class="w-3 h-16 bg-slate-200/80 border-x border-slate-400 flex items-end justify-center relative">
+                            <div class="w-2 h-10 bg-purple-600 rounded-b-sm"></div>
+                        </div>
+                        <div class="w-1.5 h-3 bg-slate-300 rounded-b-full"></div>
+                        
+                        <!-- 滴落特效子元素 -->
+                        <div id="droplet" class="w-3 h-4 bg-purple-500 rounded-full absolute -bottom-4 hidden"></div>
+
+                        <span class="absolute -bottom-7 text-[11px] font-bold text-purple-300 bg-slate-900/90 px-2 py-0.5 rounded-full border border-purple-500/40 whitespace-nowrap shadow">
+                            點擊/拖曳滴管
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 支試管架區域 -->
+            <div id="test-tubes-container" class="grid grid-cols-4 gap-2 sm:gap-4 items-end justify-items-center min-h-[220px] pb-4 border-b-8 border-slate-700/80 rounded-b-xl px-2">
+                <!-- 試管卡片會由 JavaScript 動態生成 -->
+            </div>
+        </section>
+
+        <!-- 右側：數位實驗紀錄表 -->
+        <section class="w-full lg:w-[420px] bg-slate-800/80 border border-slate-700 rounded-3xl p-5 flex flex-col justify-between shadow-2xl">
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-clipboard-list text-xl text-amber-400"></i>
+                    <h2 class="text-lg font-black text-amber-400">步驟 2：數位實驗紀錄表</h2>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">滴定後請比對變色結果，並勾選正確的酸鹼性質：</p>
+
+                <!-- 數位紀錄表格 -->
+                <div class="space-y-3" id="record-table">
+                    <!-- 由 JavaScript 動態繪製 4 溶液紀錄列 -->
+                </div>
+            </div>
+
+            <!-- 送出驗證按鈕 -->
+            <div class="mt-6">
+                <button id="submit-records-btn" 
+                        class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 text-white font-black py-3.5 rounded-2xl shadow-lg transition-transform active:scale-95 text-base flex items-center justify-center gap-2"
+                        disabled>
+                    <i class="fa-solid fa-check-double"></i> 檢查實驗紀錄表
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 頁尾說明 -->
+    <footer class="text-center py-2.5 text-xs text-slate-500 border-t border-slate-800/80">
+        自然科學實驗室 · 酸鹼指示劑顯色與數據紀錄
+    </footer>
+
+    <!-- 遊戲開始 / 導覽說明彈窗 -->
+    <div id="start-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-purple-500 rounded-3xl max-w-lg w-full p-6 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-purple-600/30 border border-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-300 text-4xl">
+                <i class="fa-solid fa-flask text-4xl"></i>
+            </div>
+            <h2 class="text-2xl font-black text-white mb-2">高麗菜汁變色魔術師</h2>
+            <p class="text-slate-300 text-sm mb-6">天然指示劑會隨溶液酸鹼性轉變色彩！</p>
+
+            <div class="bg-slate-900/70 rounded-2xl p-4 text-left text-xs sm:text-sm text-slate-300 space-y-3 mb-6 border border-slate-700">
+                <div class="flex items-start gap-3">
+                    <span class="bg-purple-600/40 text-purple-300 font-bold px-2 py-0.5 rounded text-xs">1</span>
+                    <span>點擊「紫色高麗菜汁滴管」，將指示劑分別滴入 4 支無色試管。</span>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="bg-purple-600/40 text-purple-300 font-bold px-2 py-0.5 rounded text-xs">2</span>
+                    <span>觀察變色：<b class="text-red-400">酸性呈紅色系</b>、<b class="text-emerald-400">鹼性呈藍綠色系</b>。</span>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="bg-purple-600/40 text-purple-300 font-bold px-2 py-0.5 rounded text-xs">3</span>
+                    <span>於右側「數位紀錄表」填寫變色與酸鹼性，完成實驗！</span>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg text-lg transition-transform active:scale-95">
+                開始實驗
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲結算彈窗 -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border-2 border-amber-500 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl">
+            <div id="result-icon" class="text-6xl mb-2">🔬</div>
+            <h2 id="result-title" class="text-3xl font-black text-amber-400 mb-1">實驗成功！</h2>
+            <p id="result-subtitle" class="text-slate-300 text-sm mb-4">你精確記錄了天然指示劑的酸鹼變化！</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 mb-6 border border-slate-700">
+                <div class="flex justify-between items-center py-2 border-b border-slate-800">
+                    <span class="text-slate-400">實驗得分</span>
+                    <span id="final-score" class="text-2xl font-black text-yellow-400">100</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-slate-800">
+                    <span class="text-slate-400">紀錄精確度</span>
+                    <span id="final-accuracy" class="text-lg font-bold text-emerald-400">100% 正確</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-slate-400">獲得稱號</span>
+                    <span id="final-badge" class="text-lg font-bold text-purple-300">酸鹼魔術大師 ✨</span>
+                </div>
+            </div>
+
+            <button id="restart-game-btn" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg text-lg transition-transform active:scale-95">
+                再次實驗
+            </button>
+        </div>
+    </div>
+
+    <!-- Web Audio API 音效庫 -->
+    <script>
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'drop') {
+                    // 水滴聲
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'react') {
+                    // 顯色反應變色聲
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(600, now + 0.3);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'success') {
+                    // 答對音效
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'error') {
+                    // 錯誤音效
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                }
+            } catch (e) {
+                console.log(e);
+            }
+        }
+    </script>
+
+    <!-- 遊戲主要邏輯 -->
+    <script>
+        // 四種測試溶液題庫
+        const SOLUTIONS_POOL = [
+            { id: 'lemon', name: '檸檬汁', realType: 'acid', colorResult: 'red', hex: '#ef4444', desc: '鮮紅色' },
+            { id: 'vinegar', name: '食醋', realType: 'acid', colorResult: 'red', hex: '#f43f5e', desc: '粉紅色' },
+            { id: 'water', name: '純水', realType: 'neutral', colorResult: 'purple', hex: '#a855f7', desc: '紫色' },
+            { id: 'soda', name: '小蘇打水', realType: 'alkaline', colorResult: 'blue-green', hex: '#06b6d4', desc: '藍綠色' },
+            { id: 'soap', name: '肥皂水', realType: 'alkaline', colorResult: 'green-yellow', hex: '#10b981', desc: '黃綠色' }
+        ];
+
+        // 遊戲當前狀態
+        let currentSolutions = [];
+        let completedDrips = 0;
+        let score = 0;
+        let selectedTargetTubeIndex = null;
+
+        // DOM 元素引用
+        const testTubesContainer = document.getElementById('test-tubes-container');
+        const recordTable = document.getElementById('record-table');
+        const interactiveDropper = document.getElementById('interactive-dropper');
+        const droplet = document.getElementById('droplet');
+        const progressText = document.getElementById('progress-text');
+        const scoreText = document.getElementById('score-text');
+        const submitRecordsBtn = document.getElementById('submit-records-btn');
+        const startModal = document.getElementById('start-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+
+        // 初始化實驗
+        function initExperiment() {
+            completedDrips = 0;
+            score = 0;
+            scoreText.textContent = score;
+            progressText.textContent = `0 / 4`;
+            submitRecordsBtn.disabled = true;
+
+            // 隨機抽選 4 種溶液 (確保涵蓋酸與鹼)
+            currentSolutions = [...SOLUTIONS_POOL]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4)
+                .map(item => ({ ...item, isDripped: false, userObservedColor: '', userAcidType: '' }));
+
+            renderTestTubes();
+            renderRecordTable();
+
+            startModal.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+        }
+
+        // 渲染 4 支試管
+        function renderTestTubes() {
+            testTubesContainer.innerHTML = '';
+            currentSolutions.forEach((sol, idx) => {
+                const tubeWrapper = document.createElement('div');
+                tubeWrapper.className = 'flex flex-col items-center cursor-pointer group relative';
+                tubeWrapper.onclick = () => triggerTitration(idx);
+
+                tubeWrapper.innerHTML = `
+                    <!-- 試管名稱標籤 -->
+                    <div class="mb-2 bg-slate-800 border border-slate-600 px-2.5 py-1 rounded-xl text-xs font-bold text-slate-200 text-center shadow">
+                        試管 ${idx + 1}
+                        <div class="text-[10px] font-normal text-slate-400">${sol.name}</div>
+                    </div>
+
+                    <!-- 玻璃試管體 -->
+                    <div class="glass-tube w-14 h-44 rounded-b-full border-x-2 border-b-2 border-slate-400/60 relative overflow-hidden flex items-end justify-center">
+                        <!-- 無色/變色溶液 -->
+                        <div id="tube-liquid-${idx}" 
+                             class="w-full h-[35%] bg-slate-200/40 transition-all duration-700 rounded-b-full flex items-center justify-center">
+                        </div>
+                    </div>
+
+                    <!-- 狀態指示圖示 -->
+                    <div id="status-icon-${idx}" class="mt-2 text-xs font-bold text-slate-400">
+                        <i class="fa-solid fa-droplet text-slate-600"></i> 未滴入
+                    </div>
+                `;
+                testTubesContainer.appendChild(tubeWrapper);
+            });
+        }
+
+        // 渲染紀錄表
+        function renderRecordTable() {
+            recordTable.innerHTML = '';
+            currentSolutions.forEach((sol, idx) => {
+                const row = document.createElement('div');
+                row.className = 'bg-slate-900/60 border border-slate-700/80 rounded-2xl p-3 flex flex-col gap-2 transition-all';
+                row.id = `record-row-${idx}`;
+
+                row.innerHTML = `
+                    <div class="flex justify-between items-center text-sm font-bold border-b border-slate-800 pb-1.5">
+                        <span class="text-purple-300">試管 ${idx + 1}：${sol.name}</span>
+                        <span id="record-status-${idx}" class="text-xs text-slate-500">待滴定...</span>
+                    </div>
+
+                    <!-- 選擇顏色與酸鹼選項 -->
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <!-- 顏色選擇 -->
+                        <div>
+                            <label class="block text-slate-400 mb-1">觀察變色：</label>
+                            <select id="select-color-${idx}" 
+                                    onchange="updateUserRecord(${idx}, 'color', this.value)"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg p-1.5 text-slate-200 disabled:opacity-40"
+                                    disabled>
+                                <option value="">-- 選擇顏色 --</option>
+                                <option value="red">紅色系 (紅/粉紅)</option>
+                                <option value="purple">紫色 (無明顯變色)</option>
+                                <option value="blue-green">藍綠色/黃綠色</option>
+                            </select>
+                        </div>
+
+                        <!-- 酸鹼性選擇 -->
+                        <div>
+                            <label class="block text-slate-400 mb-1">酸鹼判斷：</label>
+                            <select id="select-type-${idx}" 
+                                    onchange="updateUserRecord(${idx}, 'type', this.value)"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg p-1.5 text-slate-200 disabled:opacity-40"
+                                    disabled>
+                                <option value="">-- 選擇酸鹼 --</option>
+                                <option value="acid">酸性</option>
+                                <option value="neutral">中性</option>
+                                <option value="alkaline">鹼性</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                recordTable.appendChild(row);
+            });
+        }
+
+        // 觸發滴定動畫與化學反應
+        function triggerTitration(index) {
+            initAudio();
+            const sol = currentSolutions[index];
+            if (sol.isDripped) return; // 已滴過
+
+            sol.isDripped = true;
+            completedDrips++;
+            progressText.textContent = `${completedDrips} / 4`;
+
+            playSound('drop');
+
+            // 滴管動作
+            interactiveDropper.classList.add('dropper-hover');
+
+            // 液滴發射
+            droplet.classList.remove('hidden');
+            droplet.classList.add('drop-anim');
+
+            setTimeout(() => {
+                droplet.classList.add('hidden');
+                droplet.classList.remove('drop-anim');
+                interactiveDropper.classList.remove('dropper-hover');
+
+                // 溶液顯色化學反應
+                playSound('react');
+                const liquidEl = document.getElementById(`tube-liquid-${index}`);
+                liquidEl.style.setProperty('--target-color', sol.hex);
+                liquidEl.classList.add('liquid-react');
+                liquidEl.style.backgroundColor = sol.hex;
+
+                // 更新試管標籤狀態
+                const statusEl = document.getElementById(`status-icon-${index}`);
+                statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> <span class="text-emerald-400">已變色</span>`;
+
+                // 解鎖該試管的紀錄選項
+                document.getElementById(`select-color-${index}`).disabled = false;
+                document.getElementById(`select-type-${index}`).disabled = false;
+                document.getElementById(`record-status-${index}`).textContent = '請完成紀錄';
+                document.getElementById(`record-status-${index}`).className = 'text-xs text-amber-400 font-bold';
+
+                checkFormReady();
+            }, 500);
+        }
+
+        // 滴管本體點擊引導：自動滴入未完成的第一支試管
+        interactiveDropper.addEventListener('click', () => {
+            const nextUndrippedIndex = currentSolutions.findIndex(s => !s.isDripped);
+            if (nextUndrippedIndex !== -1) {
+                triggerTitration(nextUndrippedIndex);
+            }
+        });
+
+        // 更新使用者填寫紀錄
+        function updateUserRecord(index, field, value) {
+            if (field === 'color') currentSolutions[index].userObservedColor = value;
+            if (field === 'type') currentSolutions[index].userAcidType = value;
+            checkFormReady();
+        }
+
+        // 檢查紀錄表是否皆已填寫完畢
+        function checkFormReady() {
+            const allDripped = currentSolutions.every(s => s.isDripped);
+            const allFilled = currentSolutions.every(s => s.userObservedColor !== '' && s.userAcidType !== '');
+
+            if (allDripped && allFilled) {
+                submitRecordsBtn.disabled = false;
+                submitRecordsBtn.classList.add('animate-bounce');
+            } else {
+                submitRecordsBtn.disabled = true;
+                submitRecordsBtn.classList.remove('animate-bounce');
+            }
+        }
+
+        // 比對並送出實驗紀錄
+        submitRecordsBtn.addEventListener('click', () => {
+            let correctCount = 0;
+
+            currentSolutions.forEach((sol, idx) => {
+                const isColorCorrect = (
+                    (sol.colorResult === 'red' && sol.userObservedColor === 'red') ||
+                    (sol.colorResult === 'purple' && sol.userObservedColor === 'purple') ||
+                    ((sol.colorResult === 'blue-green' || sol.colorResult === 'green-yellow') && sol.userObservedColor === 'blue-green')
+                );
+
+                const isTypeCorrect = (sol.realType === sol.userAcidType);
+
+                const rowEl = document.getElementById(`record-row-${idx}`);
+                if (isColorCorrect && isTypeCorrect) {
+                    correctCount++;
+                    rowEl.classList.add('border-emerald-500', 'bg-emerald-950/20');
+                } else {
+                    rowEl.classList.add('border-red-500', 'bg-red-950/20');
+                }
+            });
+
+            score = correctCount * 25;
+            scoreText.textContent = score;
+
+            if (correctCount === 4) {
+                playSound('success');
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+            } else {
+                playSound('error');
+            }
+
+            // 顯示結算
+            setTimeout(() => {
+                document.getElementById('final-score').textContent = score;
+                document.getElementById('final-accuracy').textContent = `${(correctCount / 4) * 100}% 正確`;
+                
+                if (score === 100) {
+                    document.getElementById('final-badge').textContent = '酸鹼魔術大師 ✨';
+                } else if (score >= 50) {
+                    document.getElementById('final-badge').textContent = '資深實驗助手 🧪';
+                } else {
+                    document.getElementById('final-badge').textContent = '初級觀察員 🔍';
+                }
+
+                gameOverModal.classList.remove('hidden');
+            }, 600);
+        });
+
+        // 重置按鈕
+        document.getElementById('reset-experiment-btn').addEventListener('click', initExperiment);
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+            initAudio();
+            initExperiment();
+        });
+        document.getElementById('restart-game-btn').addEventListener('click', initExperiment);
+    </script>
+</body>
+</html>
